@@ -4,10 +4,10 @@ Requirements remain unchecked until implemented and tested.
 
 ## Phase 0 — Project Foundation
 
-- [ ] Git repository
-- [ ] Project structure
-- [ ] README
-- [ ] Project status tracking
+- [x] Git repository
+- [x] Project structure
+- [x] README
+- [x] Project status tracking
 
 ## Phase 1 — Data
 
@@ -19,11 +19,11 @@ Requirements remain unchecked until implemented and tested.
 
 ## Phase 2 — Deep Learning
 
-- [ ] Transformer baseline
-- [ ] Training
-- [ ] Evaluation
-- [ ] Reproducibility
-- [ ] Model artifact
+- [x] Transformer baseline
+- [x] Training
+- [x] Evaluation
+- [x] Reproducibility
+- [x] Model artifact
 
 ## Phase 3 — API
 

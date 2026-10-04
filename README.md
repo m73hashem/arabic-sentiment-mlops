@@ -13,14 +13,26 @@ The Phase 1 pipeline reads and validates the raw schema, conservatively cleans r
 Run it from the project root with:
 
 ```bash
-PYTHONPATH=src python -m arabic_sentiment
+PYTHONPATH=src .venv/bin/python -m arabic_sentiment
 ```
 
-The pipeline uses the existing Python environment and pandas; it does not train a model.
+This command runs the data pipeline only. It uses pandas and does not modify the raw dataset or train a model.
+
+## Phase 2 — Baseline deep learning model
+
+The project now includes a locally trained AraBERTv0.2-base binary sentiment classifier. The model is fine-tuned on a deterministic, class-proportional sample of 5,000 rows from the existing training split; the complete validation and test splits are used. The saved model and tokenizer are in `models/baseline-arabert/`. Training details and measured metrics are in [reports/module-2.md](reports/module-2.md).
+
+Train the baseline from the project root with:
+
+```bash
+PYTHONPATH=src .venv/bin/python -m arabic_sentiment.train --config configs/baseline.json
+```
+
+For one local prediction, load the saved model with `SentimentPredictor` from `arabic_sentiment.inference`. This is a model-level helper; no API server is included in this phase.
 
 ## Development approach
 
-The project will be developed incrementally according to the MLOps project requirements. Components shown in the roadmap and architecture below are planned work and are not claimed to be implemented yet.
+The project will be developed incrementally according to the MLOps project requirements. The data pipeline and baseline classifier are implemented; later roadmap components remain planned work.
 
 ## Preliminary project roadmap
 
@@ -40,7 +52,7 @@ The project will be developed incrementally according to the MLOps project requi
 
 ## Preliminary architecture
 
-The following diagram is a conceptual plan. Its components and flows have not been implemented or validated yet.
+The following diagram is a preliminary end-to-end plan. Data processing and baseline training are implemented; later-stage tracking, deployment, serving, monitoring, and retraining components remain planned.
 
 ```mermaid
 flowchart TD

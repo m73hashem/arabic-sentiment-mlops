@@ -32,6 +32,7 @@ Thumbs.db
 
 # Model artifacts and generated data
 models/*
+models/baseline-arabert/
 !models/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
