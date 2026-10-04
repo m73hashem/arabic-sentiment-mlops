@@ -4,7 +4,19 @@ A production-oriented MLOps project for Arabic sentiment classification using a 
 
 ## Dataset
 
-This project uses the HARD Arabic Hotel Reviews Dataset. The raw dataset is located at `data/raw/balanced-reviews.txt`. It is encoded as UTF-16 little-endian and uses tab-separated fields. Dataset details and statistics will be inspected and documented during the data phase; no final statistics or model results are claimed here.
+This project uses the HARD Arabic Hotel Reviews Dataset. The raw dataset is located at `data/raw/balanced-reviews.txt`. It is encoded as UTF-16 little-endian and uses tab-separated fields. The raw file is preserved unchanged.
+
+## Phase 1 — Data ingestion and preprocessing
+
+The Phase 1 pipeline reads and validates the raw schema, conservatively cleans review whitespace, maps ratings 1 and 2 to `negative` and 4 and 5 to `positive`, and writes deterministic 80/10/10 train, validation, and test CSV files. Duplicate cleaned review text is kept together within a single split to prevent text leakage. The output schema is `review`, `rating`, `sentiment`; the CSV files use UTF-8. Measured dataset details and split results are in [reports/module-1.md](reports/module-1.md).
+
+Run it from the project root with:
+
+```bash
+PYTHONPATH=src python -m arabic_sentiment
+```
+
+The pipeline uses the existing Python environment and pandas; it does not train a model.
 
 ## Development approach
 

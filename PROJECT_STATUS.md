@@ -11,11 +11,11 @@ Requirements remain unchecked until implemented and tested.
 
 ## Phase 1 — Data
 
-- [ ] Raw data management
-- [ ] Data parsing
-- [ ] Preprocessing
-- [ ] Deterministic train/validation/test split
-- [ ] Data tests
+- [x] Raw data management
+- [x] Data parsing
+- [x] Preprocessing
+- [x] Deterministic train/validation/test split
+- [x] Data tests
 
 ## Phase 2 — Deep Learning
 
