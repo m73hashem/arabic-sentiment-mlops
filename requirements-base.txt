@@ -13,6 +13,7 @@ datasets==5.0.1
 dill==0.4.1
 evaluate==0.4.6
 filelock==3.32.3
+fastapi==0.115.12
 frozenlist==1.8.0
 fsspec==2026.6.0
 h11==0.16.0
@@ -59,5 +60,6 @@ transformers==5.18.0
 typer==0.27.2
 typing_extensions==4.16.0
 urllib3==2.8.0
+uvicorn==0.34.0
 xxhash==4.0.1
 yarl==1.25.1

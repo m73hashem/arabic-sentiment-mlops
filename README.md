@@ -28,11 +28,23 @@ Train the baseline from the project root with:
 PYTHONPATH=src .venv/bin/python -m arabic_sentiment.train --config configs/baseline.json
 ```
 
-For one local prediction, load the saved model with `SentimentPredictor` from `arabic_sentiment.inference`. This is a model-level helper; no API server is included in this phase.
+For one local prediction, load the saved model with `SentimentPredictor` from `arabic_sentiment.inference`. This is the model-level helper used by the Phase 3 API adapter.
+
+## Phase 3 — FastAPI
+
+The local API loads the saved artifact in `models/baseline-arabert/` through a serving adapter that wraps `SentimentPredictor`. Model inference runs on CPU. The model and tokenizer load locally on the first prediction request.
+
+Start the API from the project root with:
+
+```bash
+PYTHONPATH=src .venv/bin/python -m arabic_sentiment.api
+```
+
+`GET /health` returns the API health status. `POST /predict` accepts `{"review": "...Arabic review..."}` and returns `label`, `confidence`, and `model_version`. The saved training checkpoint and seed form the reported model version. Docker and later MLOps serving components remain planned work.
 
 ## Development approach
 
-The project will be developed incrementally according to the MLOps project requirements. The data pipeline and baseline classifier are implemented; later roadmap components remain planned work.
+The project will be developed incrementally according to the MLOps project requirements. The data pipeline, baseline classifier, and local FastAPI interface are implemented; later roadmap components remain planned work.
 
 ## Preliminary project roadmap
 

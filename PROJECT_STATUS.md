@@ -27,12 +27,12 @@ Requirements remain unchecked until implemented and tested.
 
 ## Phase 3 — API
 
-- [ ] FastAPI `/predict`
-- [ ] FastAPI `/health`
-- [ ] Confidence
-- [ ] Label
-- [ ] Model version
-- [ ] API tests
+- [x] FastAPI `/predict`
+- [x] FastAPI `/health`
+- [x] Confidence
+- [x] Label
+- [x] Model version
+- [x] API tests
 
 ## Phase 4 — Docker
 
