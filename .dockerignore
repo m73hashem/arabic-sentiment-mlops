@@ -1,0 +1,16 @@
+.git
+.venv
+venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.ipynb_checkpoints
+notebooks
+data/processed
+models
+logs
+*.log
+*.tmp
+tmp
+temp
+.env

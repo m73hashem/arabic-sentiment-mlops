@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+*.egg-info/
+build/
+dist/
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Test and coverage output
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Editors and operating systems
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Model artifacts and generated data
+models/*
+!models/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+
+# Experiment tracking and data versioning caches
+mlruns/
+mlartifacts/
+.dvc/cache/
+.dvc/tmp/
+
+# Logs and temporary files
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
