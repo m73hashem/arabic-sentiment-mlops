@@ -36,10 +36,10 @@ Requirements remain unchecked until implemented and tested.
 
 ## Phase 4 — Docker
 
-- [ ] Dockerfile
-- [ ] Image build
-- [ ] Container execution
-- [ ] Endpoint validation
+- [x] Dockerfile
+- [x] Image build
+- [x] Container execution
+- [x] Endpoint validation
 
 ## Phase 5 — Experiment Tracking
 

@@ -6,7 +6,11 @@ __pycache__
 .pytest_cache
 .ipynb_checkpoints
 notebooks
-data/processed
+tests
+reports
+configs
+requirements-base.txt
+data
 models
 logs
 *.log
@@ -14,3 +18,4 @@ logs
 tmp
 temp
 .env
+.env.*

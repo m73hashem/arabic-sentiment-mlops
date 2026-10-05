@@ -40,11 +40,36 @@ Start the API from the project root with:
 PYTHONPATH=src .venv/bin/python -m arabic_sentiment.api
 ```
 
-`GET /health` returns the API health status. `POST /predict` accepts `{"review": "...Arabic review..."}` and returns `label`, `confidence`, and `model_version`. The saved training checkpoint and seed form the reported model version. Docker and later MLOps serving components remain planned work.
+`GET /health` returns the API health status. `POST /predict` accepts `{"review": "...Arabic review..."}` and returns `label`, `confidence`, and `model_version`. The saved training checkpoint and seed form the reported model version.
+
+## Phase 4 — Docker
+
+The API image is built from `Dockerfile` with Python 3.13 and the pinned CPU-only inference dependencies in `requirements-api.txt`. The model is intentionally kept outside the image and outside Git. Supply it at runtime by mounting the local artifact read-only and setting `SENTIMENT_MODEL_DIR`; the prediction-service adapter can later load a promoted artifact from another provider without changing the HTTP routes.
+
+Build with the host UID/GID so the non-root process can read the mounted artifact (the local weight file is owner-readable):
+
+```bash
+docker build \
+  --build-arg APP_UID="$(id -u)" \
+  --build-arg APP_GID="$(id -g)" \
+  -t arabic-sentiment-mlops:phase4 .
+```
+
+Run the API with the local artifact mounted read-only:
+
+```bash
+docker run --rm --name arabic-sentiment-api \
+  -p 8000:8000 \
+  -v "$PWD/models/baseline-arabert:/models/baseline-arabert:ro" \
+  -e SENTIMENT_MODEL_DIR=/models/baseline-arabert \
+  arabic-sentiment-mlops:phase4
+```
+
+The `.dockerignore` excludes `models/` and `data/`, keeping the baseline weights and datasets out of the build context.
 
 ## Development approach
 
-The project will be developed incrementally according to the MLOps project requirements. The data pipeline, baseline classifier, and local FastAPI interface are implemented; later roadmap components remain planned work.
+The project will be developed incrementally according to the MLOps project requirements. The data pipeline, baseline classifier, FastAPI interface, and Docker container validation are implemented; later roadmap components remain planned work.
 
 ## Preliminary project roadmap
 
@@ -64,7 +89,7 @@ The project will be developed incrementally according to the MLOps project requi
 
 ## Preliminary architecture
 
-The following diagram is a preliminary end-to-end plan. Data processing and baseline training are implemented; later-stage tracking, deployment, serving, monitoring, and retraining components remain planned.
+The following diagram is a preliminary end-to-end plan. Data processing, baseline training, the API, and Docker packaging for local API validation are implemented; tracking, registry, production serving, monitoring, and retraining components remain planned.
 
 ```mermaid
 flowchart TD

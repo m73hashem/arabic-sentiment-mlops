@@ -1,6 +1,7 @@
 """Adapter between the HTTP API and the local model-level predictor."""
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -10,8 +11,11 @@ from .inference import SentimentPredictor
 class LocalAraBERTService:
     """Load and serve the saved local AraBERT artifact on first prediction."""
 
-    def __init__(self, artifact_dir: str | Path = "models/baseline-arabert"):
-        self.artifact_dir = Path(artifact_dir)
+    def __init__(self, artifact_dir: str | Path | None = None):
+        configured_dir = artifact_dir or os.environ.get(
+            "SENTIMENT_MODEL_DIR", "models/baseline-arabert"
+        )
+        self.artifact_dir = Path(configured_dir)
         self._predictor: SentimentPredictor | None = None
         self._model_version = self._read_model_version()
 
