@@ -1,12 +1,22 @@
 import json
+import os
 from pathlib import Path
 import unittest
 
 import pandas as pd
+import pytest
 
 from arabic_sentiment.inference import SentimentPredictor
 from arabic_sentiment.modeling import ID_TO_LABEL, LABEL_TO_ID, MODEL_CHECKPOINT
 from arabic_sentiment.training import ReviewDataset, _sample_training_rows, load_config
+
+ARTIFACT_DIR = Path(
+    os.environ.get("ARABIC_SENTIMENT_TEST_ARTIFACT_DIR", "models/baseline-arabert")
+)
+ARTIFACT_AVAILABLE = all(
+    (ARTIFACT_DIR / filename).is_file()
+    for filename in ("model.safetensors", "training_config.json")
+)
 
 
 class ModelPipelineTests(unittest.TestCase):
@@ -40,18 +50,16 @@ class ModelPipelineTests(unittest.TestCase):
         self.assertTrue(set(first.review).issubset(frame.review))
 
 
+@pytest.mark.skipif(
+    not ARTIFACT_AVAILABLE,
+    reason="local AraBERT artifact unavailable; saved-artifact tests require model.safetensors and training_config.json",
+)
 class SavedArtifactTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        artifact_dir = Path("models/baseline-arabert")
-        if not (artifact_dir / "model.safetensors").exists():
-            raise FileNotFoundError(
-                "Train the baseline before running saved-artifact tests: "
-                "PYTHONPATH=src python -m arabic_sentiment.train"
-            )
-        with (artifact_dir / "training_config.json").open(encoding="utf-8") as config_file:
+        with (ARTIFACT_DIR / "training_config.json").open(encoding="utf-8") as config_file:
             cls.config = json.load(config_file)
-        cls.predictor = SentimentPredictor(artifact_dir)
+        cls.predictor = SentimentPredictor(ARTIFACT_DIR)
 
     def test_saved_model_and_tokenizer_load_locally(self):
         self.assertEqual(self.predictor.model.config.num_labels, 2)
