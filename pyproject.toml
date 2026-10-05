@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools==78.1.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "arabic-sentiment-mlops"
+version = "0.1.0"
+description = "MLOps project for Arabic sentiment classification with AraBERT."
+readme = "README.md"
+requires-python = ">=3.13"
+dynamic = ["dependencies"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+    "ruff==0.16.10",
+    "black==26.10.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements-base.txt"]}

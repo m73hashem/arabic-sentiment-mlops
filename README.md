@@ -2,6 +2,20 @@
 
 A production-oriented MLOps project for Arabic sentiment classification using a transformer-based deep learning model. The planned model family is Arabic BERT, such as AraBERT.
 
+## Installation
+
+Install the project and its pinned runtime dependencies in editable mode:
+
+```bash
+python -m pip install -e .
+```
+
+For development and tests, install the development tools as well:
+
+```bash
+python -m pip install -e ".[dev]"
+```
+
 ## Dataset
 
 This project uses the HARD Arabic Hotel Reviews Dataset. The raw dataset is located at `data/raw/balanced-reviews.txt`. It is encoded as UTF-16 little-endian and uses tab-separated fields. The raw file is preserved unchanged.
