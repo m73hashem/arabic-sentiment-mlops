@@ -1,0 +1,16 @@
+seed: 42
+
+data:
+  train_ratio: 0.8
+  validation_ratio: 0.1
+  test_ratio: 0.1
+
+# Lightweight DVC reproducibility model only; this is not the official AraBERT baseline.
+model:
+  type: tfidf_logistic_regression
+  max_features: 30000
+  ngram_min: 1
+  ngram_max: 2
+  C: 1.0
+  max_iter: 1000
+  solver: liblinear

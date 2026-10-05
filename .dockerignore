@@ -1,4 +1,5 @@
 .git
+.dvc/
 .venv
 venv
 __pycache__

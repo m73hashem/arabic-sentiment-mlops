@@ -1,0 +1,67 @@
+stages:
+  prepare:
+    cmd: >-
+      PYTHONPATH=src python -m arabic_sentiment.dvc_pipeline.prepare
+      --raw data/raw/balanced-reviews.txt
+      --output-dir data/dvc/processed
+      --seed ${seed}
+      --train-ratio ${data.train_ratio}
+      --validation-ratio ${data.validation_ratio}
+      --test-ratio ${data.test_ratio}
+    deps:
+      - data/raw/balanced-reviews.txt
+      - src/arabic_sentiment/__main__.py
+      - src/arabic_sentiment/data.py
+      - src/arabic_sentiment/preprocessing.py
+      - src/arabic_sentiment/split.py
+      - src/arabic_sentiment/dvc_pipeline/prepare.py
+    params:
+      - seed
+      - data.train_ratio
+      - data.validation_ratio
+      - data.test_ratio
+    outs:
+      - data/dvc/processed
+
+  train:
+    cmd: >-
+      PYTHONPATH=src python -m arabic_sentiment.dvc_pipeline.train
+      --train data/dvc/processed/train.csv
+      --output models/dvc-reproducibility/model.joblib
+      --seed ${seed}
+      --model-type ${model.type}
+      --max-features ${model.max_features}
+      --ngram-min ${model.ngram_min}
+      --ngram-max ${model.ngram_max}
+      --c ${model.C}
+      --max-iter ${model.max_iter}
+      --solver ${model.solver}
+    deps:
+      - data/dvc/processed/train.csv
+      - src/arabic_sentiment/dvc_pipeline/train.py
+    params:
+      - seed
+      - model.type
+      - model.max_features
+      - model.ngram_min
+      - model.ngram_max
+      - model.C
+      - model.max_iter
+      - model.solver
+    outs:
+      - models/dvc-reproducibility/model.joblib
+
+  evaluate:
+    cmd: >-
+      PYTHONPATH=src python -m arabic_sentiment.dvc_pipeline.evaluate
+      --model models/dvc-reproducibility/model.joblib
+      --validation data/dvc/processed/validation.csv
+      --test data/dvc/processed/test.csv
+      --output metrics/dvc-reproducibility.json
+    deps:
+      - models/dvc-reproducibility/model.joblib
+      - data/dvc/processed/validation.csv
+      - data/dvc/processed/test.csv
+      - src/arabic_sentiment/dvc_pipeline/evaluate.py
+    metrics:
+      - metrics/dvc-reproducibility.json

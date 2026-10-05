@@ -2,6 +2,8 @@
 
 Requirements remain unchecked until implemented and tested.
 
+Overall checklist progress: 31 of 76 items complete (40.8%).
+
 ## Phase 0 — Project Foundation
 
 - [x] Git repository
@@ -43,29 +45,34 @@ Requirements remain unchecked until implemented and tested.
 
 ## Phase 5 — Experiment Tracking
 
-- [ ] MLflow
-- [ ] At least 5 meaningful runs
-- [ ] Model registry
-- [ ] Reproducibility
+- [x] Local MLflow tracking and `arabic-sentiment` experiment
+- [x] At least 5 completed, meaningful runs with actual parameters, metrics, and artifacts
+- [x] Official full-GPU baseline logged and registered with run-to-version traceability
+- [x] Deterministic CPU-only evaluation runs with reproducible sample hashes
+- [x] Model Registry candidate alias and serving selection abstraction
 
-## Phase 5 — Data Versioning
+The `candidate` and `production` aliases point to the official baseline after the logged quality gate passed against the historical CPU baseline metrics and the registry model load/prediction check. This registry selection does not claim a live production deployment.
 
-- [ ] DVC
-- [ ] Reproducible data pipeline
+## Phase 6 — Data Versioning and Reproducibility
 
-## Phase 6 — CI/CD
+- [x] DVC
+- [x] Reproducible data pipeline
+
+Phase 6 implementation steps 6.1–6.7 are complete (7/7). The raw dataset is tracked by DVC and its MinIO remote object is present. The prepare/train/evaluate pipeline is up to date locally; the final remote-cache check showed its generated processed splits, lightweight model, and metrics are not uploaded to MinIO.
+
+## Phase 7 — CI/CD
 
 - [ ] GitHub Actions
 - [ ] Tests
 - [ ] Linting
 - [ ] Model quality gate
 
-## Phase 7 — Production Serving
+## Phase 8 — Production Serving
 
 - [ ] BentoML
 - [ ] Production serving validation
 
-## Phase 8 — Load Testing
+## Phase 9 — Load Testing
 
 - [ ] Locust
 - [ ] p50
@@ -75,12 +82,12 @@ Requirements remain unchecked until implemented and tested.
 - [ ] Failure rate
 - [ ] Saturation point
 
-## Phase 8 — Deployment Safety
+## Phase 9 — Deployment Safety
 
 - [ ] Canary deployment
 - [ ] Rollback
 
-## Phase 9 — Optimization
+## Phase 10 — Optimization
 
 - [ ] Baseline model
 - [ ] 6-layer student/distillation
@@ -88,7 +95,7 @@ Requirements remain unchecked until implemented and tested.
 - [ ] INT8 quantization
 - [ ] Benchmark comparison
 
-## Phase 10 — Monitoring
+## Phase 11 — Monitoring
 
 - [ ] Prometheus
 - [ ] Grafana
@@ -98,7 +105,7 @@ Requirements remain unchecked until implemented and tested.
 - [ ] Prediction distribution
 - [ ] Vocabulary drift / PSI
 
-## Phase 11 — Retraining
+## Phase 12 — Retraining
 
 - [ ] Retraining pipeline
 - [ ] Evaluation
@@ -107,7 +114,7 @@ Requirements remain unchecked until implemented and tested.
 - [ ] Human approval
 - [ ] Rollback
 
-## Phase 12 — Final Submission
+## Phase 13 — Final Submission
 
 - [ ] README
 - [ ] Architecture diagram

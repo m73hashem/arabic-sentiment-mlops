@@ -1,0 +1,6 @@
+[core]
+    remote = minio
+['remote "minio"']
+    url = s3://arabic-sentiment-dvc
+    endpointurl = http://127.0.0.1:9000
+    region = us-east-1

@@ -1,6 +1,7 @@
 """CPU-capable AraBERT fine-tuning and one-time final test evaluation."""
 
 import json
+import hashlib
 import math
 import random
 from dataclasses import asdict, dataclass
@@ -26,6 +27,8 @@ class TrainingConfig:
     epochs: int = 1
     max_sequence_length: int = 96
     max_train_samples: int | None = None
+    validation_sample_count: int | None = None
+    evaluate_test: bool = True
     weight_decay: float = 0.01
     max_gradient_norm: float = 1.0
     warmup_ratio: float = 0.06
@@ -163,7 +166,7 @@ def _sample_training_rows(frame: pd.DataFrame, limit: int | None, seed: int) -> 
 
 
 def train_and_evaluate(config: TrainingConfig) -> dict[str, Any]:
-    """Fine-tune one CPU baseline, select on validation F1, and test once."""
+    """Fine-tune one model, select on validation F1, and optionally test once."""
     seed_everything(config.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     torch.set_num_threads(max(1, min(torch.get_num_threads(), 4)))
@@ -172,12 +175,57 @@ def train_and_evaluate(config: TrainingConfig) -> dict[str, Any]:
     validation_frame = pd.read_csv(
         config.validation_csv, encoding="utf-8", usecols=["review", "sentiment"]
     )
-    test_frame = pd.read_csv(config.test_csv, encoding="utf-8", usecols=["review", "sentiment"])
+    test_frame = (
+        pd.read_csv(config.test_csv, encoding="utf-8", usecols=["review", "sentiment"])
+        if config.evaluate_test
+        else None
+    )
     available_train_rows = len(train_frame)
     train_frame = _sample_training_rows(train_frame, config.max_train_samples, config.seed)
+    available_validation_rows = len(validation_frame)
+    validation_frame = _sample_training_rows(
+        validation_frame, config.validation_sample_count, config.seed
+    )
     train_dataset = ReviewDataset(train_frame)
     validation_dataset = ReviewDataset(validation_frame)
-    test_dataset = ReviewDataset(test_frame)
+    test_dataset = ReviewDataset(test_frame) if test_frame is not None else None
+    sample_digest = hashlib.sha256(
+        "\n".join(
+            f"{review}\t{label}"
+            for review, label in zip(train_dataset.texts, train_dataset.labels)
+        ).encode("utf-8")
+    ).hexdigest()
+
+    try:
+        import mlflow
+
+        tracking_run_active = mlflow.active_run() is not None
+    except ImportError:
+        mlflow = None
+        tracking_run_active = False
+    if tracking_run_active:
+        from .dvc_lineage import mlflow_lineage_tags
+
+        mlflow.set_tags(mlflow_lineage_tags())
+        mlflow.log_params(
+            {
+                "model_checkpoint": config.model_checkpoint,
+                "seed": config.seed,
+                "learning_rate": config.learning_rate,
+                "batch_size": config.batch_size,
+                "gradient_accumulation_steps": config.gradient_accumulation_steps,
+                "epochs": config.epochs,
+                "max_sequence_length": config.max_sequence_length,
+                "weight_decay": config.weight_decay,
+                "warmup_ratio": config.warmup_ratio,
+                "training_sample_count": len(train_dataset),
+                "available_training_rows": available_train_rows,
+                "validation_sample_count": len(validation_dataset),
+                "available_validation_rows": available_validation_rows,
+                "optimizer": "transformers.Adafactor",
+            }
+        )
+        mlflow.set_tag("training_sample_sha256", sample_digest)
 
     tokenizer = AutoTokenizer.from_pretrained(config.model_checkpoint, use_fast=True)
     collate = _collate(tokenizer, config.max_sequence_length)
@@ -197,12 +245,16 @@ def train_and_evaluate(config: TrainingConfig) -> dict[str, Any]:
         num_workers=config.num_workers,
         collate_fn=collate,
     )
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=config.batch_size,
-        shuffle=False,
-        num_workers=config.num_workers,
-        collate_fn=collate,
+    test_loader = (
+        DataLoader(
+            test_dataset,
+            batch_size=config.batch_size,
+            shuffle=False,
+            num_workers=config.num_workers,
+            collate_fn=collate,
+        )
+        if test_dataset is not None
+        else None
     )
 
     model = AutoModelForSequenceClassification.from_pretrained(
@@ -271,6 +323,16 @@ def train_and_evaluate(config: TrainingConfig) -> dict[str, Any]:
         )
         validation_history.append(validation_metrics)
         print(f"validation_epoch_{epoch + 1}: {json.dumps(validation_metrics, sort_keys=True)}", flush=True)
+        if tracking_run_active:
+            mlflow.log_metrics(
+                {
+                    f"validation_{name}": float(value)
+                    for name, value in validation_metrics.items()
+                    if name in {"loss", "accuracy", "precision", "recall", "f1"}
+                },
+                step=epoch + 1,
+            )
+            mlflow.log_metric("train_loss", float(validation_metrics["train_loss"]), step=epoch + 1)
 
         if validation_metrics["f1"] > best_f1:
             best_f1 = validation_metrics["f1"]
@@ -291,9 +353,17 @@ def train_and_evaluate(config: TrainingConfig) -> dict[str, Any]:
                 },
             )
 
-    best_model = AutoModelForSequenceClassification.from_pretrained(artifact_dir, local_files_only=True)
-    best_model.to(device)
-    test_metrics = evaluate(best_model, test_loader, device)
+    test_metrics = None
+    if test_loader is not None:
+        best_model = AutoModelForSequenceClassification.from_pretrained(
+            artifact_dir, local_files_only=True
+        )
+        best_model.to(device)
+        test_metrics = evaluate(best_model, test_loader, device)
+        if tracking_run_active:
+            mlflow.log_metrics(
+                {f"test_{name}": float(value) for name, value in test_metrics.items()}
+            )
     report = {
         "model_checkpoint": config.model_checkpoint,
         "device": str(device),
@@ -304,14 +374,19 @@ def train_and_evaluate(config: TrainingConfig) -> dict[str, Any]:
         "actual_rows": {
             "available_train": available_train_rows,
             "train": len(train_dataset),
+            "available_validation": available_validation_rows,
             "validation": len(validation_dataset),
-            "test": len(test_dataset),
+            "test": len(test_dataset) if test_dataset is not None else 0,
         },
+        "training_sample_sha256": sample_digest,
         "label_to_id": LABEL_TO_ID,
         "validation_history": validation_history,
         "best_validation_f1": best_f1,
         "test_metrics": test_metrics,
-        "test_evaluations": 1,
+        "test_evaluations": 1 if test_metrics is not None else 0,
     }
     _write_json(artifact_dir / "training_results.json", report)
+    if tracking_run_active:
+        mlflow.log_artifact(str(artifact_dir / "training_config.json"), artifact_path="metadata")
+        mlflow.log_artifact(str(artifact_dir / "training_results.json"), artifact_path="metadata")
     return report

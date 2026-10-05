@@ -4,7 +4,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     HF_HUB_OFFLINE=1 \
     HF_HOME=/tmp/huggingface \
-    SENTIMENT_MODEL_DIR=/models/baseline-arabert \
+    SENTIMENT_MODEL_DIR=/models/full-gpu-arabert-inference \
     PYTHONPATH=/app/src
 
 ARG APP_UID=10001

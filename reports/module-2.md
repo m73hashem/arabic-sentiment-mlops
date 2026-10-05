@@ -6,6 +6,26 @@ Fine-tune a reusable Arabic transformer classifier for the Phase 1 hotel-review 
 
 AraBERT is published under `aubmindlab`; CAMeL-Lab's CAMeLBERT is a distinct model family. The implementation uses the actual AraBERT checkpoint rather than substituting CAMeLBERT or a multilingual model. AraBERTv0.2 is used without adding Farasa segmentation or other normalization, so the Phase 1 cleaned review text is passed directly to its tokenizer.
 
+## Official full-dataset GPU baseline
+
+The official project baseline was subsequently trained in Google Colab on a Tesla T4 using all 84,558 training rows. It supersedes the CPU-constrained experiment below as the project baseline. The clean local inference-only artifact is `models/full-gpu-arabert-inference/`; it contains the model config/weights and tokenizer files, not optimizer or trainer state. Local MLflow tracking records and registers this already-trained model; MLflow did not perform its training.
+
+| Setting | Value |
+|---|---|
+| Training rows | 84,558 |
+| Validation / test rows | 10,570 / 10,570 |
+| Device / environment | Tesla T4 / Google Colab |
+| Epochs / seed | 1 / 42 |
+| Max sequence length | 96 |
+| Batch size / gradient accumulation | 16 / 1 (effective 16) |
+| Learning rate / weight decay | 0.00002 / 0.01 |
+| Optimizer / fp16 | AdamW / true |
+| Warmup steps / approximate training time | 317 / 11.24 minutes |
+| Validation loss / accuracy / precision / recall / F1 | 0.122829 / 0.963765 / 0.955407 / 0.972942 / 0.964095 |
+| Test loss / accuracy / precision / recall / F1 | 0.12363797426223755 / 0.9628192999053926 / 0.9549851190476191 / 0.9714285714285714 / 0.9631366663540005 |
+
+These full-data metrics are the results supplied with the completed Colab training. The local inference artifact was checked by loading it and making an actual CPU prediction; the run's supplied full-split metrics are not represented as a new local evaluation.
+
 ## Dataset and labels
 
 - Source files: `data/processed/train.csv`, `validation.csv`, and `test.csv`; the Phase 1 files and split membership were not changed.
@@ -44,7 +64,7 @@ The AraBERT fast tokenizer tokenizes the Phase 1 `review` text with truncation a
 
 The environment had 4 available CPU threads and no CUDA. Training used PyTorch 2.14.1+cpu and Transformers 5.18.0; no packages were installed for this phase.
 
-## Actual results
+## Historical CPU-constrained 5,000-row experiment — actual results
 
 Metrics are positive-class precision, recall, and F1. Validation and test losses are mean cross-entropy loss per example.
 
@@ -53,7 +73,7 @@ Metrics are positive-class precision, recall, and F1. Validation and test losses
 | Validation (epoch 1, selected best) | 10,570 | 0.186286 | 0.946074 | 0.923478 | 0.972753 | 0.947475 |
 | Test (one final evaluation) | 10,570 | 0.182576 | 0.945979 | 0.920442 | 0.976348 | 0.947571 |
 
-The observed training loss at the epoch boundary was 0.234076. Validation F1 selected the epoch-1 checkpoint. These are results from the actual CPU run and a 5,000-row training sample; they are not full-train-split metrics.
+The observed training loss at the epoch boundary was 0.234076. Validation F1 selected the epoch-1 checkpoint. These are results from the actual CPU run and a 5,000-row training sample; they are not full-train-split metrics and this artifact is no longer the official baseline.
 
 ## Artifact and inference
 

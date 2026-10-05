@@ -31,17 +31,26 @@ htmlcov/
 Thumbs.db
 
 # Model artifacts and generated data
-models/*
-models/baseline-arabert/
-!models/.gitkeep
+models/
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.ckpt
+*.onnx
 data/processed/*
 !data/processed/.gitkeep
 
 # Experiment tracking and data versioning caches
 mlruns/
 mlartifacts/
+mlflow.db
+mlflow.db-*
+mlflow.db-shm
+mlflow.db-wal
 .dvc/cache/
 .dvc/tmp/
+.dvc/config.local
 
 # Logs and temporary files
 *.log
@@ -53,6 +62,7 @@ temp/
 # Secrets
 .env
 .env.*
+*.env
 !.env.example
 *.pem
 *.key

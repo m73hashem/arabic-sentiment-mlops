@@ -1,0 +1,100 @@
+schema: '2.0'
+stages:
+  prepare:
+    cmd: PYTHONPATH=src python -m arabic_sentiment.dvc_pipeline.prepare --raw
+      data/raw/balanced-reviews.txt --output-dir data/dvc/processed --seed 42
+      --train-ratio 0.8 --validation-ratio 0.1 --test-ratio 0.1
+    deps:
+    - path: data/raw/balanced-reviews.txt
+      hash: md5
+      md5: 8b3523338727a05a3f8bac9522073b75
+      size: 43480662
+    - path: src/arabic_sentiment/__main__.py
+      hash: md5
+      md5: 4e8c2303d70f1fc23045c6197d8f7c81
+      size: 3623
+    - path: src/arabic_sentiment/data.py
+      hash: md5
+      md5: 974deccf47760f9c08c317aa4bf5d12d
+      size: 1180
+    - path: src/arabic_sentiment/dvc_pipeline/prepare.py
+      hash: md5
+      md5: 533bbb1538358a7366950f8b8def995b
+      size: 1110
+    - path: src/arabic_sentiment/preprocessing.py
+      hash: md5
+      md5: 506df6d390f3eb1243ef293d3258ec24
+      size: 2490
+    - path: src/arabic_sentiment/split.py
+      hash: md5
+      md5: ad48ed461dd86d2709d971c49b3574ee
+      size: 3004
+    params:
+      params.yaml:
+        data.test_ratio: 0.1
+        data.train_ratio: 0.8
+        data.validation_ratio: 0.1
+        seed: 42
+    outs:
+    - path: data/dvc/processed
+      hash: md5
+      md5: d826d8d6bdfb040dc45643bae8796280.dir
+      size: 27462923
+      nfiles: 3
+  train:
+    cmd: PYTHONPATH=src python -m arabic_sentiment.dvc_pipeline.train --train
+      data/dvc/processed/train.csv --output
+      models/dvc-reproducibility/model.joblib --seed 42 --model-type
+      tfidf_logistic_regression --max-features 30000 --ngram-min 1 --ngram-max 2
+      --c 1.0 --max-iter 1000 --solver liblinear
+    deps:
+    - path: data/dvc/processed/train.csv
+      hash: md5
+      md5: ec56d84bac7d1359f654417f40926da6
+      size: 21988703
+    - path: src/arabic_sentiment/dvc_pipeline/train.py
+      hash: md5
+      md5: 1e5589dc56b0dbedc0850dc0170f39f2
+      size: 2938
+    params:
+      params.yaml:
+        model.C: 1.0
+        model.max_features: 30000
+        model.max_iter: 1000
+        model.ngram_max: 2
+        model.ngram_min: 1
+        model.solver: liblinear
+        model.type: tfidf_logistic_regression
+        seed: 42
+    outs:
+    - path: models/dvc-reproducibility/model.joblib
+      hash: md5
+      md5: 2f03d400603ecec71ce990292779b480
+      size: 1598512
+  evaluate:
+    cmd: PYTHONPATH=src python -m arabic_sentiment.dvc_pipeline.evaluate --model
+      models/dvc-reproducibility/model.joblib --validation
+      data/dvc/processed/validation.csv --test data/dvc/processed/test.csv
+      --output metrics/dvc-reproducibility.json
+    deps:
+    - path: data/dvc/processed/test.csv
+      hash: md5
+      md5: 2cadd785679f1969a007aa60fab5dd8f
+      size: 2745964
+    - path: data/dvc/processed/validation.csv
+      hash: md5
+      md5: 4118e7bc5ab71277c9689f1701adb0e5
+      size: 2728256
+    - path: models/dvc-reproducibility/model.joblib
+      hash: md5
+      md5: 2f03d400603ecec71ce990292779b480
+      size: 1598512
+    - path: src/arabic_sentiment/dvc_pipeline/evaluate.py
+      hash: md5
+      md5: 199e14d12cb1bed7993bf524bc6941ee
+      size: 1838
+    outs:
+    - path: metrics/dvc-reproducibility.json
+      hash: md5
+      md5: 28cd7a6029ac8392e71db683540b1d9f
+      size: 314

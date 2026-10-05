@@ -6,7 +6,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
-from .serving import LocalAraBERTService
+from .serving import create_prediction_service
 
 
 class PredictionService(Protocol):
@@ -40,7 +40,7 @@ class HealthResponse(BaseModel):
 
 def create_app(service: PredictionService | None = None) -> FastAPI:
     """Create the API with an injectable service for tests and future backends."""
-    prediction_service = service or LocalAraBERTService()
+    prediction_service = service or create_prediction_service()
     application = FastAPI(
         title="Arabic Sentiment Analysis API",
         version="1.0.0",

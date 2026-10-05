@@ -1,0 +1,5 @@
+outs:
+- md5: 8b3523338727a05a3f8bac9522073b75
+  size: 43480662
+  hash: md5
+  path: balanced-reviews.txt

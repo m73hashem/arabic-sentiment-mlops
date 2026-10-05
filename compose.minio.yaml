@@ -1,0 +1,20 @@
+services:
+  minio:
+    image: arabic-sentiment-minio:RELEASE.2025-07-23T15-54-02Z
+    build:
+      context: ./infra/minio
+      dockerfile: Dockerfile
+    container_name: arabic-sentiment-minio
+    command: ["server", "/data", "--console-address", ":9001"]
+    env_file:
+      - .env.minio
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - minio-data:/data
+    restart: unless-stopped
+
+volumes:
+  minio-data:
+    name: arabic-sentiment-minio-data

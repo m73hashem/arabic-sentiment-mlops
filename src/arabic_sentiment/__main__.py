@@ -7,13 +7,24 @@ import pandas as pd
 
 from .data import load_raw_data
 from .preprocessing import prepare_reviews
-from .split import DEFAULT_SEED, SPLIT_NAMES, split_reviews, verify_no_review_leakage
+from .split import (
+    DEFAULT_SEED,
+    SPLIT_FRACTIONS,
+    SPLIT_NAMES,
+    split_reviews,
+    verify_no_review_leakage,
+)
 
 
-def run_pipeline(raw_path: Path, output_dir: Path, seed: int = DEFAULT_SEED) -> dict:
+def run_pipeline(
+    raw_path: Path,
+    output_dir: Path,
+    seed: int = DEFAULT_SEED,
+    split_ratios: tuple[float, float, float] = tuple(SPLIT_FRACTIONS),
+) -> dict:
     raw = load_raw_data(raw_path)
     prepared, preprocessing_stats = prepare_reviews(raw)
-    splits = split_reviews(prepared, seed=seed)
+    splits = split_reviews(prepared, seed=seed, ratios=split_ratios)
     if not verify_no_review_leakage(splits):
         raise RuntimeError("Duplicate review text crossed split boundaries")
 

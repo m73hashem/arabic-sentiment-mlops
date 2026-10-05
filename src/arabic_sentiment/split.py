@@ -9,7 +9,9 @@ SPLIT_FRACTIONS = np.array([0.8, 0.1, 0.1], dtype=float)
 
 
 def split_reviews(
-    data: pd.DataFrame, seed: int = DEFAULT_SEED
+    data: pd.DataFrame,
+    seed: int = DEFAULT_SEED,
+    ratios: tuple[float, float, float] = tuple(SPLIT_FRACTIONS),
 ) -> dict[str, pd.DataFrame]:
     """Assign every cleaned review text group to one split, balancing class counts.
 
@@ -24,6 +26,14 @@ def split_reviews(
     if not set(data["sentiment"].unique()).issubset({"negative", "positive"}):
         raise ValueError("Sentiment must contain only 'negative' and 'positive'")
 
+    fractions = np.asarray(ratios, dtype=float)
+    if (
+        fractions.shape != (len(SPLIT_NAMES),)
+        or np.any(fractions <= 0)
+        or not np.isclose(fractions.sum(), 1.0)
+    ):
+        raise ValueError("Split ratios must be three positive values that sum to 1")
+
     group_ids, _ = pd.factorize(data["review"], sort=True)
     group_count = int(group_ids.max()) + 1
     labels = data["sentiment"].to_numpy()
@@ -32,7 +42,7 @@ def split_reviews(
     np.add.at(group_class_counts, (group_ids, class_codes), 1)
 
     class_totals = group_class_counts.sum(axis=0)
-    targets = SPLIT_FRACTIONS[:, None] * class_totals[None, :]
+    targets = fractions[:, None] * class_totals[None, :]
     assignments = np.zeros((3, 2), dtype=np.int64)
 
     rng = np.random.default_rng(seed)

@@ -1,0 +1,46 @@
+{
+  "experiment_name": "arabic-sentiment",
+  "official_artifact_dir": "models/full-gpu-arabert-inference",
+  "evaluations": [
+    {
+      "run_name": "official-artifact-validation-subset-seq96",
+      "run_kind": "official_artifact_validation_subset",
+      "split": "validation",
+      "sample_count": 64,
+      "max_sequence_length": 96,
+      "batch_size": 8
+    },
+    {
+      "run_name": "official-artifact-validation-truncation-seq64",
+      "run_kind": "validation_truncation_sensitivity",
+      "split": "validation",
+      "sample_count": 64,
+      "max_sequence_length": 64,
+      "batch_size": 8
+    },
+    {
+      "run_name": "official-artifact-validation-batch16-sample128",
+      "run_kind": "validation_sample_and_batch_comparison",
+      "split": "validation",
+      "sample_count": 128,
+      "max_sequence_length": 96,
+      "batch_size": 16
+    },
+    {
+      "run_name": "official-artifact-test-subset-seq96",
+      "run_kind": "heldout_test_subset_evaluation",
+      "split": "test",
+      "sample_count": 64,
+      "max_sequence_length": 96,
+      "batch_size": 8
+    },
+    {
+      "run_name": "official-artifact-test-truncation-seq64",
+      "run_kind": "test_truncation_sensitivity",
+      "split": "test",
+      "sample_count": 64,
+      "max_sequence_length": 64,
+      "batch_size": 8
+    }
+  ]
+}
