@@ -27,12 +27,15 @@ def test_review_dataset_rejects_missing_fields_missing_values_and_unknown_labels
 
 def test_training_config_rejects_unrelated_checkpoint_and_invalid_dimensions(tmp_path):
     config_path = tmp_path / "config.json"
-    config_path.write_text(json.dumps({"model_checkpoint": "unrelated/model"}), encoding="utf-8")
+    config_path.write_text(
+        json.dumps({"model_checkpoint": "unrelated/model"}), encoding="utf-8"
+    )
     with pytest.raises(ValueError, match="fixed to"):
         load_config(config_path)
 
     config_path.write_text(
-        json.dumps({"model_checkpoint": MODEL_CHECKPOINT, "epochs": 0}), encoding="utf-8"
+        json.dumps({"model_checkpoint": MODEL_CHECKPOINT, "epochs": 0}),
+        encoding="utf-8",
     )
     with pytest.raises(ValueError, match="must be positive"):
         load_config(config_path)
@@ -40,7 +43,9 @@ def test_training_config_rejects_unrelated_checkpoint_and_invalid_dimensions(tmp
 
 def test_training_dataset_collation_and_metrics_preserve_label_contract():
     dataset = ReviewDataset(
-        pd.DataFrame({"review": ["سيء", "ممتاز"], "sentiment": ["negative", "positive"]})
+        pd.DataFrame(
+            {"review": ["سيء", "ممتاز"], "sentiment": ["negative", "positive"]}
+        )
     )
     assert len(dataset) == 2
     assert dataset[1] == ("ممتاز", 1)
@@ -72,7 +77,9 @@ def test_seeded_sampling_rejects_limits_that_cannot_represent_each_class():
     assert torch.equal(first, torch.rand(3))
 
 
-def test_training_cli_passes_config_to_training_and_prints_result(tmp_path, monkeypatch, capsys):
+def test_training_cli_passes_config_to_training_and_prints_result(
+    tmp_path, monkeypatch, capsys
+):
     config_path = tmp_path / "baseline.json"
     config_path.write_text("{}", encoding="utf-8")
     captured = {}
@@ -81,11 +88,16 @@ def test_training_cli_passes_config_to_training_and_prints_result(tmp_path, monk
         captured["config"] = config
         return {"device": "cpu", "test_evaluations": 0}
 
-    monkeypatch.setattr("arabic_sentiment.train.load_config", lambda path: {"path": path})
+    monkeypatch.setattr(
+        "arabic_sentiment.train.load_config", lambda path: {"path": path}
+    )
     monkeypatch.setattr("arabic_sentiment.train.train_and_evaluate", fake_train)
     monkeypatch.setattr("sys.argv", ["train", "--config", str(config_path)])
 
     training_cli.main()
 
     assert captured["config"] == {"path": str(config_path)}
-    assert json.loads(capsys.readouterr().out) == {"device": "cpu", "test_evaluations": 0}
+    assert json.loads(capsys.readouterr().out) == {
+        "device": "cpu",
+        "test_evaluations": 0,
+    }

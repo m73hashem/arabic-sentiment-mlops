@@ -1,7 +1,7 @@
 """Local model-level prediction interface for a saved sentiment artifact."""
 
-from pathlib import Path
 import json
+from pathlib import Path
 
 import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
@@ -19,8 +19,12 @@ class SentimentPredictor:
         max_sequence_length: int | None = None,
     ):
         self.artifact_dir = Path(artifact_dir)
-        self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
-        self.tokenizer = AutoTokenizer.from_pretrained(self.artifact_dir, local_files_only=True)
+        self.device = torch.device(
+            device or ("cuda" if torch.cuda.is_available() else "cpu")
+        )
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.artifact_dir, local_files_only=True
+        )
         self.model = AutoModelForSequenceClassification.from_pretrained(
             self.artifact_dir, local_files_only=True
         ).to(self.device)
@@ -30,7 +34,9 @@ class SentimentPredictor:
             self.max_sequence_length = int(max_sequence_length)
         elif training_config.is_file():
             with training_config.open(encoding="utf-8") as config_file:
-                self.max_sequence_length = int(json.load(config_file)["max_sequence_length"])
+                self.max_sequence_length = int(
+                    json.load(config_file)["max_sequence_length"]
+                )
         else:
             # Official inference-only exports omit training state; the project baseline
             # used 96 tokens and keeps that setting as its local inference default.

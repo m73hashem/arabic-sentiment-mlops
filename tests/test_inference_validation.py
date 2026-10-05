@@ -9,6 +9,8 @@ from arabic_sentiment.inference import SentimentPredictor, predict_review
 
 def test_predict_many_validates_batch_size_and_each_review_without_loading_model():
     predictor = SentimentPredictor.__new__(SentimentPredictor)
+    predictor.max_sequence_length = 96
+    assert predictor.predict_many([]) == []
     with pytest.raises(ValueError, match="batch_size must be positive"):
         predictor.predict_many([], batch_size=0)
     with pytest.raises(TypeError, match="review must be a string"):
@@ -44,7 +46,8 @@ def test_predictor_loads_local_artifact_configuration_without_downloading(
     monkeypatch.setattr(
         inference.AutoTokenizer,
         "from_pretrained",
-        lambda path, **kwargs: calls.append(("tokenizer", path, kwargs)) or FakeTokenizer(),
+        lambda path, **kwargs: calls.append(("tokenizer", path, kwargs))
+        or FakeTokenizer(),
     )
     monkeypatch.setattr(
         inference.AutoModelForSequenceClassification,
@@ -56,7 +59,9 @@ def test_predictor_loads_local_artifact_configuration_without_downloading(
             json.dumps(training_config), encoding="utf-8"
         )
 
-    predictor = SentimentPredictor(tmp_path, device="cpu", max_sequence_length=explicit_max_length)
+    predictor = SentimentPredictor(
+        tmp_path, device="cpu", max_sequence_length=explicit_max_length
+    )
 
     assert predictor.max_sequence_length == expected
     assert predictor.device.type == "cpu"

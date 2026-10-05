@@ -1,7 +1,8 @@
-import pandas as pd
 import unittest
-from tempfile import TemporaryDirectory
 from pathlib import Path
+from tempfile import TemporaryDirectory
+
+import pandas as pd
 
 from arabic_sentiment.data import RAW_COLUMNS, load_raw_data, validate_raw_schema
 from arabic_sentiment.preprocessing import clean_review_text, prepare_reviews
@@ -36,7 +37,9 @@ class DataPipelineTests(unittest.TestCase):
         raw = synthetic_raw()
         with TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "raw.txt"
-            raw.to_csv(path, sep="\t", index=False, encoding="utf-16", lineterminator="\r\n")
+            raw.to_csv(
+                path, sep="\t", index=False, encoding="utf-16", lineterminator="\r\n"
+            )
 
             loaded = load_raw_data(path)
             self.assertEqual(loaded.columns.tolist(), RAW_COLUMNS)
@@ -69,7 +72,9 @@ class DataPipelineTests(unittest.TestCase):
 
     def test_review_cleaning_preserves_arabic_and_punctuation(self):
         values = pd.Series(["  مَرْحَبًا!!!\n   بالعالم  ", None, "  "])
-        self.assertEqual(clean_review_text(values).tolist(), ["مَرْحَبًا!!! بالعالم", "", ""])
+        self.assertEqual(
+            clean_review_text(values).tolist(), ["مَرْحَبًا!!! بالعالم", "", ""]
+        )
 
     def test_empty_reviews_are_not_in_prepared_data(self):
         result, stats = prepare_reviews(synthetic_raw())
@@ -92,12 +97,16 @@ class DataPipelineTests(unittest.TestCase):
             {name: frame.to_dict("records") for name, frame in first.items()},
             {name: frame.to_dict("records") for name, frame in second.items()},
         )
-        self.assertEqual([len(first[name]) for name in ("train", "validation", "test")], [83, 10, 10])
+        self.assertEqual(
+            [len(first[name]) for name in ("train", "validation", "test")], [83, 10, 10]
+        )
         self.assertTrue(verify_no_review_leakage(first))
         self.assertEqual(first["validation"]["sentiment"].nunique(), 2)
         self.assertEqual(first["test"]["sentiment"].nunique(), 2)
 
-    def test_duplicate_review_text_never_crosses_splits_including_conflicting_labels(self):
+    def test_duplicate_review_text_never_crosses_splits_including_conflicting_labels(
+        self,
+    ):
         data = pd.DataFrame(
             {
                 "review": ["duplicate"] * 4 + [f"other {i}" for i in range(16)],
@@ -110,7 +119,11 @@ class DataPipelineTests(unittest.TestCase):
         splits = split_reviews(data, seed=42)
 
         self.assertTrue(verify_no_review_leakage(splits))
-        occurrences = [name for name, frame in splits.items() if frame["review"].eq("duplicate").any()]
+        occurrences = [
+            name
+            for name, frame in splits.items()
+            if frame["review"].eq("duplicate").any()
+        ]
         self.assertEqual(len(occurrences), 1)
 
 

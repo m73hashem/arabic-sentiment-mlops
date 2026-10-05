@@ -7,7 +7,9 @@ from arabic_sentiment import serving
 from arabic_sentiment.modeling import MODEL_CHECKPOINT
 
 
-def test_local_service_reads_finetuned_version_and_loads_predictor_lazily(tmp_path, monkeypatch):
+def test_local_service_reads_finetuned_version_and_loads_predictor_lazily(
+    tmp_path, monkeypatch
+):
     (tmp_path / "training_config.json").write_text(
         json.dumps({"model_checkpoint": MODEL_CHECKPOINT, "seed": 42}), encoding="utf-8"
     )
@@ -34,7 +36,9 @@ def test_local_service_reads_finetuned_version_and_loads_predictor_lazily(tmp_pa
     assert calls == ["جيد", "ممتاز"]
 
 
-def test_local_service_identifies_official_inference_export_and_rejects_unknown_artifact(tmp_path):
+def test_local_service_identifies_official_inference_export_and_rejects_unknown_artifact(
+    tmp_path,
+):
     (tmp_path / "config.json").write_text("{}", encoding="utf-8")
     service = serving.LocalAraBERTService(tmp_path)
     assert service.model_version == f"{MODEL_CHECKPOINT}-official-full-gpu-seed-42"
@@ -43,12 +47,16 @@ def test_local_service_identifies_official_inference_export_and_rejects_unknown_
         serving.LocalAraBERTService(tmp_path / "missing")
 
 
-def test_mlflow_service_resolves_version_and_alias_without_loading_until_predict(monkeypatch):
+def test_mlflow_service_resolves_version_and_alias_without_loading_until_predict(
+    monkeypatch,
+):
     exact = serving.MlflowModelService("models:/arabic-sentiment/7")
     assert exact.model_version == "7"
     assert exact._model is None
 
-    monkeypatch.setattr("arabic_sentiment.mlflow_tracking.registered_alias_version", lambda alias: "11")
+    monkeypatch.setattr(
+        "arabic_sentiment.mlflow_tracking.registered_alias_version", lambda alias: "11"
+    )
     alias = serving.MlflowModelService("models:/arabic-sentiment@candidate")
     assert alias.model_version == "11"
     with pytest.raises(ValueError, match="must not be empty"):

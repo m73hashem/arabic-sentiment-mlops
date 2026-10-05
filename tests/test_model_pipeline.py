@@ -1,7 +1,7 @@
 import json
 import os
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -46,7 +46,9 @@ class ModelPipelineTests(unittest.TestCase):
         first = _sample_training_rows(frame, 20, seed=42)
         second = _sample_training_rows(frame, 20, seed=42)
         self.assertEqual(first.to_dict("records"), second.to_dict("records"))
-        self.assertEqual(first.sentiment.value_counts().to_dict(), {"negative": 12, "positive": 8})
+        self.assertEqual(
+            first.sentiment.value_counts().to_dict(), {"negative": 12, "positive": 8}
+        )
         self.assertTrue(set(first.review).issubset(frame.review))
 
 
@@ -57,7 +59,9 @@ class ModelPipelineTests(unittest.TestCase):
 class SavedArtifactTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        with (ARTIFACT_DIR / "training_config.json").open(encoding="utf-8") as config_file:
+        with (ARTIFACT_DIR / "training_config.json").open(
+            encoding="utf-8"
+        ) as config_file:
             cls.config = json.load(config_file)
         cls.predictor = SentimentPredictor(ARTIFACT_DIR)
 

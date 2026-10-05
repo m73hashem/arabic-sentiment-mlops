@@ -17,7 +17,9 @@ class LocalAraBERTService:
             if Path("models/full-gpu-arabert-inference").is_dir()
             else "models/baseline-arabert"
         )
-        configured_dir = artifact_dir or os.environ.get("SENTIMENT_MODEL_DIR", default_dir)
+        configured_dir = artifact_dir or os.environ.get(
+            "SENTIMENT_MODEL_DIR", default_dir
+        )
         self.artifact_dir = Path(configured_dir)
         self._predictor: SentimentPredictor | None = None
         self._model_version = self._read_model_version()

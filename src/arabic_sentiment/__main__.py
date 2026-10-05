@@ -3,8 +3,6 @@
 import argparse
 from pathlib import Path
 
-import pandas as pd
-
 from .data import load_raw_data
 from .preprocessing import prepare_reviews
 from .split import (
@@ -37,10 +35,15 @@ def run_pipeline(
         "raw_columns": raw.columns.tolist(),
         "raw_shape": list(raw.shape),
         "pandas_dtypes": {column: str(dtype) for column, dtype in raw.dtypes.items()},
-        "missing_by_column": {column: int(value) for column, value in raw.isna().sum().items()},
+        "missing_by_column": {
+            column: int(value) for column, value in raw.isna().sum().items()
+        },
         "rating_distribution": {
             str(key): int(value)
-            for key, value in raw["rating"].value_counts(dropna=False).sort_index().items()
+            for key, value in raw["rating"]
+            .value_counts(dropna=False)
+            .sort_index()
+            .items()
         },
         "duplicate_full_rows": int(raw.duplicated().sum()),
         "missing_hotel_names": int(raw["Hotel name"].isna().sum()),
@@ -69,21 +72,33 @@ def run_pipeline(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Prepare deterministic HARD sentiment data splits")
-    parser.add_argument("--raw", type=Path, default=Path("data/raw/balanced-reviews.txt"))
+    parser = argparse.ArgumentParser(
+        description="Prepare deterministic HARD sentiment data splits"
+    )
+    parser.add_argument(
+        "--raw", type=Path, default=Path("data/raw/balanced-reviews.txt")
+    )
     parser.add_argument("--output-dir", type=Path, default=Path("data/processed"))
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     args = parser.parse_args()
 
     summary = run_pipeline(args.raw, args.output_dir, args.seed)
-    print(f"Raw dataset: {summary['raw_shape'][0]} rows x {summary['raw_shape'][1]} columns")
+    print(
+        f"Raw dataset: {summary['raw_shape'][0]} rows x {summary['raw_shape'][1]} columns"
+    )
     print(f"Usable binary sentiment rows: {summary['usable_rows']}")
     print(f"Excluded rows: {summary['preprocessing']['excluded_rows']}")
-    print(f"Duplicate review rows retained: {summary['preprocessing']['duplicate_review_rows']}")
+    print(
+        f"Duplicate review rows retained: {summary['preprocessing']['duplicate_review_rows']}"
+    )
     print(f"Sentiment counts: {summary['class_distribution']}")
     for name, values in summary["splits"].items():
-        print(f"{name}: {values['rows']} rows ({values['proportion']:.2%}), {values['class_distribution']}")
-    print(f"Duplicate leakage check: {'PASS' if summary['duplicate_leakage_free'] else 'FAIL'}")
+        print(
+            f"{name}: {values['rows']} rows ({values['proportion']:.2%}), {values['class_distribution']}"
+        )
+    print(
+        f"Duplicate leakage check: {'PASS' if summary['duplicate_leakage_free'] else 'FAIL'}"
+    )
     print(f"Wrote UTF-8 CSV files to {summary['output_dir']}")
 
 

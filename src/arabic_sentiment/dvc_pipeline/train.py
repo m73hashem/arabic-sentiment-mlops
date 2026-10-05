@@ -65,7 +65,9 @@ def main() -> None:
 
     frame = pd.read_csv(args.train, encoding="utf-8", usecols=["review", "sentiment"])
     if frame.empty or frame[["review", "sentiment"]].isna().any().any():
-        raise ValueError("Training data must contain nonempty review and sentiment values")
+        raise ValueError(
+            "Training data must contain nonempty review and sentiment values"
+        )
     model = build_model(
         model_type=args.model_type,
         max_features=args.max_features,

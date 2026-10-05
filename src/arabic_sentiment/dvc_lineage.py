@@ -25,16 +25,24 @@ def get_dvc_dataset_hash(pointer_path: str | Path = DEFAULT_DVC_POINTER) -> str:
         raise ValueError(f"Cannot parse DVC pointer {pointer}: {exc}") from exc
 
     if not isinstance(document, dict):
-        raise ValueError(f"DVC pointer must contain a mapping: {pointer}")
+        raise ValueError(  # noqa: TRY004 - malformed file content is a value error.
+            f"DVC pointer must contain a mapping: {pointer}"
+        )
     outputs = document.get("outs")
-    if not isinstance(outputs, list) or len(outputs) != 1 or not isinstance(outputs[0], dict):
+    if (
+        not isinstance(outputs, list)
+        or len(outputs) != 1
+        or not isinstance(outputs[0], dict)
+    ):
         raise ValueError(f"DVC pointer must contain exactly one file output: {pointer}")
     output = outputs[0]
     digest = output.get("md5")
     if output.get("hash", "md5") != "md5" or not isinstance(digest, str):
         raise ValueError(f"DVC pointer does not contain an MD5 content hash: {pointer}")
     if re.fullmatch(r"[0-9a-f]{32}", digest) is None:
-        raise ValueError(f"DVC pointer contains a malformed MD5 content hash: {pointer}")
+        raise ValueError(
+            f"DVC pointer contains a malformed MD5 content hash: {pointer}"
+        )
     return digest
 
 
@@ -56,5 +64,7 @@ def mlflow_lineage_tags(
     """Build MLflow lineage tags from the current DVC pointer and Git revision."""
     return {
         DVC_DATASET_HASH_TAG: get_dvc_dataset_hash(pointer_path),
-        GIT_REVISION_TAG: git_revision if git_revision is not None else current_git_revision(),
+        GIT_REVISION_TAG: (
+            git_revision if git_revision is not None else current_git_revision()
+        ),
     }

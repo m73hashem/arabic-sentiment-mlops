@@ -53,9 +53,14 @@ def prepare_reviews(raw: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, int]]:
             result.groupby("review", sort=False)["sentiment"].nunique().gt(1).sum()
         ),
         "conflicting_sentiment_duplicate_rows": int(
-            result["review"].isin(
-                result.groupby("review", sort=False)["sentiment"].nunique().loc[lambda x: x.gt(1)].index
-            ).sum()
+            result["review"]
+            .isin(
+                result.groupby("review", sort=False)["sentiment"]
+                .nunique()
+                .loc[lambda x: x.gt(1)]
+                .index
+            )
+            .sum()
         ),
         "excluded_rows": int((~usable).sum()),
     }

@@ -16,7 +16,11 @@ from arabic_sentiment.mlflow_tracking import (
     configure_tracking,
     verify_project_history,
 )
-from arabic_sentiment.serving import LocalAraBERTService, MlflowModelService, create_prediction_service
+from arabic_sentiment.serving import (
+    LocalAraBERTService,
+    MlflowModelService,
+    create_prediction_service,
+)
 
 
 class MlflowTrackingTests(unittest.TestCase):
@@ -26,7 +30,9 @@ class MlflowTrackingTests(unittest.TestCase):
             f"sqlite:///{DEFAULT_TRACKING_DB.as_posix()}",
             DEFAULT_ARTIFACT_ROOT,
         )
-        with tempfile.TemporaryDirectory(prefix="arabic-sentiment-test-mlflow-") as temp_dir:
+        with tempfile.TemporaryDirectory(
+            prefix="arabic-sentiment-test-mlflow-"
+        ) as temp_dir:
             root = Path(temp_dir)
             tracking_uri = f"sqlite:///{(root / 'tracking.db').as_posix()}"
             configure_tracking(tracking_uri, artifact_root=root / "artifacts")
@@ -43,14 +49,24 @@ class MlflowTrackingTests(unittest.TestCase):
                 )
                 mlflow.log_text("actual test artifact", "metadata/result.txt")
 
-            experiment = MlflowClient(tracking_uri).get_experiment_by_name(EXPERIMENT_NAME)
+            experiment = MlflowClient(tracking_uri).get_experiment_by_name(
+                EXPERIMENT_NAME
+            )
             logged = MlflowClient(tracking_uri).get_run(run.info.run_id)
             self.assertEqual(logged.info.status, "FINISHED")
             self.assertEqual(logged.data.params["model_checkpoint"], "unit-test")
             self.assertEqual(logged.data.params["seed"], "42")
             self.assertEqual(logged.data.metrics["validation_f1"], 0.9)
             self.assertTrue(
-                (root / "artifacts" / EXPERIMENT_NAME / run.info.run_id / "artifacts" / "metadata" / "result.txt").is_file()
+                (
+                    root
+                    / "artifacts"
+                    / EXPERIMENT_NAME
+                    / run.info.run_id
+                    / "artifacts"
+                    / "metadata"
+                    / "result.txt"
+                ).is_file()
             )
             self.assertEqual(experiment.name, "arabic-sentiment")
 
@@ -71,13 +87,19 @@ class MlflowTrackingTests(unittest.TestCase):
             },
         )
         if not Path("mlflow.db").is_file():
-            self.skipTest("local project MLflow history is generated locally, not checked into Git")
+            self.skipTest(
+                "local project MLflow history is generated locally, not checked into Git"
+            )
 
         audit = verify_project_history(minimum_runs=5)
         self.assertGreaterEqual(audit["valid_run_count"], 5)
-        self.assertEqual(audit["candidate_alias_version"], audit["official_model_version"])
+        self.assertEqual(
+            audit["candidate_alias_version"], audit["official_model_version"]
+        )
         self.assertTrue(audit["production_alias_set"])
-        self.assertEqual(audit["production_alias_version"], audit["official_model_version"])
+        self.assertEqual(
+            audit["production_alias_version"], audit["official_model_version"]
+        )
         configure_tracking()
         client = MlflowClient()
         model_version = client.get_model_version(
@@ -114,12 +136,14 @@ class MlflowTrackingTests(unittest.TestCase):
         ):
             self.assertIn(name, official.data.params)
         self.assertEqual(
-            set(OFFICIAL_BASELINE_METRICS), set(official.data.metrics) & set(OFFICIAL_BASELINE_METRICS)
+            set(OFFICIAL_BASELINE_METRICS),
+            set(official.data.metrics) & set(OFFICIAL_BASELINE_METRICS),
         )
         self.assertTrue(client.list_artifacts(audit["official_run_id"]))
 
         evaluation_runs = [
-            client.get_run(run_id) for run_id in audit["valid_run_ids"]
+            client.get_run(run_id)
+            for run_id in audit["valid_run_ids"]
             if client.get_run(run_id).data.tags.get("experiment_type")
             == "deterministic_local_evaluation"
         ]
@@ -129,7 +153,9 @@ class MlflowTrackingTests(unittest.TestCase):
             self.assertEqual(len(run.data.tags["sample_sha256"]), 64)
 
     def test_serving_uses_configured_mlflow_uri_or_local_fallback(self):
-        with patch.dict(os.environ, {"SENTIMENT_MODEL_URI": "models:/arabic-sentiment@candidate"}):
+        with patch.dict(
+            os.environ, {"SENTIMENT_MODEL_URI": "models:/arabic-sentiment@candidate"}
+        ):
             with patch.object(MlflowModelService, "_resolve_version", return_value="7"):
                 service = create_prediction_service()
             self.assertIsInstance(service, MlflowModelService)
@@ -144,7 +170,9 @@ class MlflowTrackingTests(unittest.TestCase):
                     service.artifact_dir, Path("models/full-gpu-arabert-inference")
                 )
 
-        with patch.dict(os.environ, {"SENTIMENT_MODEL_URI": "models:/arabic-sentiment/4"}):
+        with patch.dict(
+            os.environ, {"SENTIMENT_MODEL_URI": "models:/arabic-sentiment/4"}
+        ):
             service = create_prediction_service()
             self.assertIsInstance(service, MlflowModelService)
             self.assertEqual(service.model_version, "4")

@@ -1,7 +1,7 @@
 """CPU-capable AraBERT fine-tuning and one-time final test evaluation."""
 
-import json
 import hashlib
+import json
 import math
 import random
 from dataclasses import asdict, dataclass
@@ -53,7 +53,9 @@ class ReviewDataset(Dataset):
         if missing:
             raise ValueError(f"Dataset is missing required columns: {sorted(missing)}")
         if frame["review"].isna().any() or frame["sentiment"].isna().any():
-            raise ValueError("Review and sentiment columns cannot contain missing values")
+            raise ValueError(
+                "Review and sentiment columns cannot contain missing values"
+            )
         unexpected = set(frame["sentiment"].unique()) - LABEL_TO_ID.keys()
         if unexpected:
             raise ValueError(f"Unexpected sentiment labels: {sorted(unexpected)}")
@@ -105,7 +107,9 @@ def _collate(tokenizer, max_length: int):
     return collate
 
 
-def _metrics(targets: list[int], predictions: list[int], loss_sum: float) -> dict[str, float]:
+def _metrics(
+    targets: list[int], predictions: list[int], loss_sum: float
+) -> dict[str, float]:
     tp = sum(y == 1 and p == 1 for y, p in zip(targets, predictions))
     tn = sum(y == 0 and p == 0 for y, p in zip(targets, predictions))
     fp = sum(y == 0 and p == 1 for y, p in zip(targets, predictions))
@@ -139,10 +143,14 @@ def evaluate(model, dataloader: DataLoader, device: torch.device) -> dict[str, f
 
 
 def _write_json(path: Path, value: Any) -> None:
-    path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
 
 
-def _sample_training_rows(frame: pd.DataFrame, limit: int | None, seed: int) -> pd.DataFrame:
+def _sample_training_rows(
+    frame: pd.DataFrame, limit: int | None, seed: int
+) -> pd.DataFrame:
     """Take a deterministic proportional sample from training data only."""
     if limit is None or len(frame) <= limit:
         return frame
@@ -171,7 +179,9 @@ def train_and_evaluate(config: TrainingConfig) -> dict[str, Any]:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     torch.set_num_threads(max(1, min(torch.get_num_threads(), 4)))
 
-    train_frame = pd.read_csv(config.train_csv, encoding="utf-8", usecols=["review", "sentiment"])
+    train_frame = pd.read_csv(
+        config.train_csv, encoding="utf-8", usecols=["review", "sentiment"]
+    )
     validation_frame = pd.read_csv(
         config.validation_csv, encoding="utf-8", usecols=["review", "sentiment"]
     )
@@ -181,7 +191,9 @@ def train_and_evaluate(config: TrainingConfig) -> dict[str, Any]:
         else None
     )
     available_train_rows = len(train_frame)
-    train_frame = _sample_training_rows(train_frame, config.max_train_samples, config.seed)
+    train_frame = _sample_training_rows(
+        train_frame, config.max_train_samples, config.seed
+    )
     available_validation_rows = len(validation_frame)
     validation_frame = _sample_training_rows(
         validation_frame, config.validation_sample_count, config.seed
@@ -271,13 +283,18 @@ def train_and_evaluate(config: TrainingConfig) -> dict[str, Any]:
         warmup_init=False,
         weight_decay=config.weight_decay,
     )
-    optimizer_steps = math.ceil(len(train_loader) / config.gradient_accumulation_steps) * config.epochs
+    optimizer_steps = (
+        math.ceil(len(train_loader) / config.gradient_accumulation_steps)
+        * config.epochs
+    )
     warmup_steps = int(optimizer_steps * config.warmup_ratio)
 
     def lr_factor(step: int) -> float:
         if warmup_steps and step < warmup_steps:
             return (step + 1) / warmup_steps
-        return max(0.0, (optimizer_steps - step) / max(optimizer_steps - warmup_steps, 1))
+        return max(
+            0.0, (optimizer_steps - step) / max(optimizer_steps - warmup_steps, 1)
+        )
 
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_factor)
     artifact_dir = Path(config.artifact_dir)
@@ -302,7 +319,9 @@ def train_and_evaluate(config: TrainingConfig) -> dict[str, Any]:
             update_now = (batch_index + 1) % config.gradient_accumulation_steps == 0
             final_batch = batch_index + 1 == len(train_loader)
             if update_now or final_batch:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), config.max_gradient_norm)
+                torch.nn.utils.clip_grad_norm_(
+                    model.parameters(), config.max_gradient_norm
+                )
                 optimizer.step()
                 scheduler.step()
                 optimizer.zero_grad(set_to_none=True)
@@ -322,7 +341,10 @@ def train_and_evaluate(config: TrainingConfig) -> dict[str, Any]:
             }
         )
         validation_history.append(validation_metrics)
-        print(f"validation_epoch_{epoch + 1}: {json.dumps(validation_metrics, sort_keys=True)}", flush=True)
+        print(
+            f"validation_epoch_{epoch + 1}: {json.dumps(validation_metrics, sort_keys=True)}",
+            flush=True,
+        )
         if tracking_run_active:
             mlflow.log_metrics(
                 {
@@ -332,7 +354,9 @@ def train_and_evaluate(config: TrainingConfig) -> dict[str, Any]:
                 },
                 step=epoch + 1,
             )
-            mlflow.log_metric("train_loss", float(validation_metrics["train_loss"]), step=epoch + 1)
+            mlflow.log_metric(
+                "train_loss", float(validation_metrics["train_loss"]), step=epoch + 1
+            )
 
         if validation_metrics["f1"] > best_f1:
             best_f1 = validation_metrics["f1"]
@@ -344,7 +368,8 @@ def train_and_evaluate(config: TrainingConfig) -> dict[str, Any]:
                     **asdict(config),
                     "device": str(device),
                     "optimizer": "transformers.Adafactor",
-                    "effective_batch_size": config.batch_size * config.gradient_accumulation_steps,
+                    "effective_batch_size": config.batch_size
+                    * config.gradient_accumulation_steps,
                     "optimizer_steps": optimizer_steps,
                     "available_train_rows": available_train_rows,
                     "actual_train_rows": len(train_dataset),
@@ -387,6 +412,10 @@ def train_and_evaluate(config: TrainingConfig) -> dict[str, Any]:
     }
     _write_json(artifact_dir / "training_results.json", report)
     if tracking_run_active:
-        mlflow.log_artifact(str(artifact_dir / "training_config.json"), artifact_path="metadata")
-        mlflow.log_artifact(str(artifact_dir / "training_results.json"), artifact_path="metadata")
+        mlflow.log_artifact(
+            str(artifact_dir / "training_config.json"), artifact_path="metadata"
+        )
+        mlflow.log_artifact(
+            str(artifact_dir / "training_results.json"), artifact_path="metadata"
+        )
     return report

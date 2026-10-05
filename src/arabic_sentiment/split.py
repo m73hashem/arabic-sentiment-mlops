@@ -47,7 +47,9 @@ def split_reviews(
 
     rng = np.random.default_rng(seed)
     tie_order = rng.permutation(group_count)
-    order = tie_order[np.argsort(-group_class_counts[tie_order].sum(axis=1), kind="stable")]
+    order = tie_order[
+        np.argsort(-group_class_counts[tie_order].sum(axis=1), kind="stable")
+    ]
     group_split = np.empty(group_count, dtype=np.int8)
 
     for group_id in order:

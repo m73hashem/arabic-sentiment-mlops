@@ -14,7 +14,9 @@ from .serving import MlflowModelService
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Track/evaluate the official AraBERT baseline")
+    parser = argparse.ArgumentParser(
+        description="Track/evaluate the official AraBERT baseline"
+    )
     parser.add_argument("--config", default="configs/mlflow-experiments.json")
     parser.add_argument("--verify-only", action="store_true")
     args = parser.parse_args()

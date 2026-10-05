@@ -56,7 +56,9 @@ def create_app(service: PredictionService | None = None) -> FastAPI:
         try:
             result = prediction_service.predict(request.review)
         except (FileNotFoundError, OSError, ValueError, RuntimeError) as exc:
-            raise HTTPException(status_code=503, detail="Sentiment model is unavailable") from exc
+            raise HTTPException(
+                status_code=503, detail="Sentiment model is unavailable"
+            ) from exc
         return PredictionResponse(
             label=result["label"],
             confidence=result["confidence"],

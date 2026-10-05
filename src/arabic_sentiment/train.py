@@ -3,11 +3,13 @@
 import argparse
 import json
 
-from .training import TrainingConfig, load_config, train_and_evaluate
+from .training import load_config, train_and_evaluate
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Train and evaluate the AraBERT baseline")
+    parser = argparse.ArgumentParser(
+        description="Train and evaluate the AraBERT baseline"
+    )
     parser.add_argument("--config", default="configs/baseline.json")
     args = parser.parse_args()
     config = load_config(args.config)

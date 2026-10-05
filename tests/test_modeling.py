@@ -9,7 +9,9 @@ def test_build_classifier_requests_binary_sentiment_label_metadata(monkeypatch):
         calls.append((checkpoint, kwargs))
         return expected_model
 
-    monkeypatch.setattr(modeling.AutoModelForSequenceClassification, "from_pretrained", load)
+    monkeypatch.setattr(
+        modeling.AutoModelForSequenceClassification, "from_pretrained", load
+    )
 
     assert modeling.build_classifier("local-checkpoint") is expected_model
     assert calls == [

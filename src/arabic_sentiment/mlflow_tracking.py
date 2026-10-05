@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import os
 import time
 from pathlib import Path
@@ -51,10 +50,14 @@ class TransformerSentimentPyfunc(PythonModel):
     """MLflow pyfunc adapter that delegates prediction to the existing predictor."""
 
     def load_context(self, context):
-        self.predictor = SentimentPredictor(context.artifacts["model_dir"], device="cpu")
+        self.predictor = SentimentPredictor(
+            context.artifacts["model_dir"], device="cpu"
+        )
 
     def predict(self, context, model_input: pd.DataFrame, params=None) -> pd.DataFrame:
-        predictions = self.predictor.predict_many(model_input["review"].astype(str).tolist())
+        predictions = self.predictor.predict_many(
+            model_input["review"].astype(str).tolist()
+        )
         return pd.DataFrame(predictions, columns=["label", "confidence"])
 
 
@@ -77,7 +80,9 @@ def configure_tracking(
             EXPERIMENT_NAME,
             artifact_location=str((selected_artifact_root / EXPERIMENT_NAME).resolve()),
         )
-        client.set_experiment_tag(experiment_id, "project", "Arabic Sentiment Analysis MLOps")
+        client.set_experiment_tag(
+            experiment_id, "project", "Arabic Sentiment Analysis MLOps"
+        )
     mlflow.set_experiment(EXPERIMENT_NAME)
     return uri
 
@@ -86,9 +91,7 @@ def _git_commit() -> str:
     return current_git_revision()
 
 
-def start_project_run(
-    run_name: str, *, pointer_path: str | Path = DEFAULT_DVC_POINTER
-):
+def start_project_run(run_name: str, *, pointer_path: str | Path = DEFAULT_DVC_POINTER):
     """Start an MLflow run with the current DVC dataset and Git lineage tags."""
     tags = mlflow_lineage_tags(pointer_path)
     run = mlflow.start_run(run_name=run_name)
@@ -113,17 +116,23 @@ def _log_model(artifact_dir: str | Path):
         ],
         signature=ModelSignature(
             inputs=Schema([ColSpec("string", "review")]),
-            outputs=Schema([ColSpec("string", "label"), ColSpec("double", "confidence")]),
+            outputs=Schema(
+                [ColSpec("string", "label"), ColSpec("double", "confidence")]
+            ),
         ),
     )
 
 
 def _register_run(run_id: str, tags: dict[str, Any]) -> str:
     uri = f"runs:/{run_id}/{MODEL_ARTIFACT_PATH}"
-    version = mlflow.register_model(uri, REGISTERED_MODEL_NAME, await_registration_for=120)
+    version = mlflow.register_model(
+        uri, REGISTERED_MODEL_NAME, await_registration_for=120
+    )
     client = MlflowClient()
     for key, value in tags.items():
-        client.set_model_version_tag(REGISTERED_MODEL_NAME, version.version, key, str(value))
+        client.set_model_version_tag(
+            REGISTERED_MODEL_NAME, version.version, key, str(value)
+        )
     return str(version.version)
 
 
@@ -133,7 +142,12 @@ def log_official_gpu_baseline(
     """Track and register the existing official Colab model; this function never trains."""
     configure_tracking()
     artifact_path = Path(artifact_dir).resolve()
-    required = ("config.json", "model.safetensors", "tokenizer.json", "tokenizer_config.json")
+    required = (
+        "config.json",
+        "model.safetensors",
+        "tokenizer.json",
+        "tokenizer_config.json",
+    )
     missing = [name for name in required if not (artifact_path / name).is_file()]
     if missing:
         raise FileNotFoundError(f"Official inference artifact is incomplete: {missing}")
@@ -141,11 +155,17 @@ def log_official_gpu_baseline(
     client = MlflowClient()
     experiment_id = client.get_experiment_by_name(EXPERIMENT_NAME).experiment_id
     for previous in client.search_runs(
-        [experiment_id], filter_string="tags.run_kind = 'official_gpu_baseline'", max_results=100
+        [experiment_id],
+        filter_string="tags.run_kind = 'official_gpu_baseline'",
+        max_results=100,
     ):
         version = previous.data.tags.get("model_version")
         if previous.info.status == "FINISHED" and version:
-            return {"run_id": previous.info.run_id, "model_version": version, "skipped": True}
+            return {
+                "run_id": previous.info.run_id,
+                "model_version": version,
+                "skipped": True,
+            }
 
     params = {
         "model_name": "AraBERTv0.2-base",
@@ -192,7 +212,11 @@ def log_official_gpu_baseline(
                 "training_location": "Google Colab",
                 "tracked_locally": True,
                 "training_performed_by_mlflow": False,
-                "dataset_split_sizes": {"train": 84558, "validation": 10570, "test": 10570},
+                "dataset_split_sizes": {
+                    "train": 84558,
+                    "validation": 10570,
+                    "test": 10570,
+                },
                 "metrics_source": "completed official GPU baseline results provided for this project",
                 "artifact_source": str(artifact_path),
                 "metrics": OFFICIAL_BASELINE_METRICS,
@@ -222,20 +246,26 @@ def log_official_gpu_baseline(
 
 def _stratified_subset(frame: pd.DataFrame, count: int, seed: int) -> pd.DataFrame:
     if count < 2 or frame["sentiment"].nunique() < 2:
-        raise ValueError("Evaluation requires at least two rows and both sentiment classes")
+        raise ValueError(
+            "Evaluation requires at least two rows and both sentiment classes"
+        )
     fraction = count / len(frame)
     pieces = []
     remaining = count
     groups = list(frame.groupby("sentiment", sort=True))
     for index, (_, group) in enumerate(groups):
-        allocated = remaining if index == len(groups) - 1 else min(
-            len(group), round(len(group) * fraction)
+        allocated = (
+            remaining
+            if index == len(groups) - 1
+            else min(len(group), round(len(group) * fraction))
         )
         pieces.append(group.sample(n=allocated, random_state=seed + index))
         remaining -= allocated
     sample = pd.concat(pieces).sample(frac=1, random_state=seed).reset_index(drop=True)
     if len(sample) != count:
-        raise ValueError(f"Unable to create requested evaluation sample of {count} rows")
+        raise ValueError(
+            f"Unable to create requested evaluation sample of {count} rows"
+        )
     return sample
 
 
@@ -269,7 +299,9 @@ def evaluate_artifact(
     start = time.perf_counter()
     for offset in range(0, len(reviews), batch_size):
         batch_reviews = reviews[offset : offset + batch_size]
-        batch_targets = torch.tensor(targets[offset : offset + batch_size], dtype=torch.long)
+        batch_targets = torch.tensor(
+            targets[offset : offset + batch_size], dtype=torch.long
+        )
         encoded = predictor.tokenizer(
             batch_reviews,
             truncation=True,
@@ -301,16 +333,17 @@ def evaluate_artifact(
         f"{split}_subset_f1": f1,
         "accuracy": float(np.mean(targets == predicted)),
         "f1": f1,
-        "f1_macro": (
-            f1
-            + (2 * tn / (2 * tn + fp + fn) if 2 * tn + fp + fn else 0.0)
-        )
+        "f1_macro": (f1 + (2 * tn / (2 * tn + fp + fn) if 2 * tn + fp + fn else 0.0))
         / 2,
         "evaluation_seconds": elapsed_seconds,
-        "samples_per_second": len(targets) / elapsed_seconds if elapsed_seconds else 0.0,
+        "samples_per_second": (
+            len(targets) / elapsed_seconds if elapsed_seconds else 0.0
+        ),
     }
     sample_digest = hashlib.sha256(
-        "\n".join(f"{text}\t{label}" for text, label in zip(reviews, targets)).encode("utf-8")
+        "\n".join(f"{text}\t{label}" for text, label in zip(reviews, targets)).encode(
+            "utf-8"
+        )
     ).hexdigest()
     return {
         "split": split,
@@ -372,7 +405,9 @@ def log_evaluation_run(
         for key, value in additions.items():
             if key not in previous.data.params:
                 client.log_param(previous.info.run_id, key, value)
-        client.log_dict(previous.info.run_id, result, "metadata/evaluation_revalidation.json")
+        client.log_dict(
+            previous.info.run_id, result, "metadata/evaluation_revalidation.json"
+        )
         return {"run_id": previous.info.run_id, **result, "updated_existing_run": True}
 
     with start_project_run(run_name) as run:
@@ -429,14 +464,21 @@ def promote_official_baseline_after_quality_gate(
     client = MlflowClient()
     experiment_id = client.get_experiment_by_name(EXPERIMENT_NAME).experiment_id
     official = next(
-        run for run in client.search_runs(
-            [experiment_id], filter_string="tags.run_kind = 'official_gpu_baseline'", max_results=100
+        run
+        for run in client.search_runs(
+            [experiment_id],
+            filter_string="tags.run_kind = 'official_gpu_baseline'",
+            max_results=100,
         )
-        if run.info.status == "FINISHED" and run.data.tags.get("model_version") == str(model_version)
+        if run.info.status == "FINISHED"
+        and run.data.tags.get("model_version") == str(model_version)
     )
     historical = next(
-        run for run in client.search_runs(
-            [experiment_id], filter_string="tags.run_kind = 'phase2_baseline_reference'", max_results=100
+        run
+        for run in client.search_runs(
+            [experiment_id],
+            filter_string="tags.run_kind = 'phase2_baseline_reference'",
+            max_results=100,
         )
         if run.info.status == "FINISHED"
     )
@@ -501,13 +543,17 @@ def promote_official_baseline_after_quality_gate(
             mlflow.log_metrics(
                 {
                     "official_validation_f1": result["official_validation_f1"],
-                    "historical_validation_f1_threshold": result["historical_validation_f1"],
+                    "historical_validation_f1_threshold": result[
+                        "historical_validation_f1"
+                    ],
                     "validation_f1_margin": (
-                        result["official_validation_f1"] - result["historical_validation_f1"]
+                        result["official_validation_f1"]
+                        - result["historical_validation_f1"]
                     ),
                     "official_test_f1": result["official_test_f1"],
                     "historical_test_f1_threshold": result["historical_test_f1"],
-                    "test_f1_margin": result["official_test_f1"] - result["historical_test_f1"],
+                    "test_f1_margin": result["official_test_f1"]
+                    - result["historical_test_f1"],
                 }
             )
             mlflow.set_tags(
@@ -525,7 +571,9 @@ def promote_official_baseline_after_quality_gate(
     else:
         gate_run_id = existing_gate.info.run_id
 
-    client.set_registered_model_alias(REGISTERED_MODEL_NAME, "production", str(model_version))
+    client.set_registered_model_alias(
+        REGISTERED_MODEL_NAME, "production", str(model_version)
+    )
     client.set_model_version_tag(
         REGISTERED_MODEL_NAME, model_version, "promotion_quality_gate", "passed"
     )
@@ -567,16 +615,24 @@ def verify_project_history(minimum_runs: int = 5) -> dict[str, Any]:
     experiment = client.get_experiment_by_name(EXPERIMENT_NAME)
     runs = client.search_runs([experiment.experiment_id], max_results=1000)
     valid = [
-        run for run in runs
+        run
+        for run in runs
         if run.info.status == "FINISHED"
         and run.data.params
         and run.data.metrics
         and client.list_artifacts(run.info.run_id)
     ]
     if len(valid) < minimum_runs:
-        raise RuntimeError(f"Expected at least {minimum_runs} completed valid runs; found {len(valid)}")
+        raise RuntimeError(
+            f"Expected at least {minimum_runs} completed valid runs; found {len(valid)}"
+        )
     official = next(
-        (run for run in valid if run.data.tags.get("run_kind") == "official_gpu_baseline"), None
+        (
+            run
+            for run in valid
+            if run.data.tags.get("run_kind") == "official_gpu_baseline"
+        ),
+        None,
     )
     if official is None:
         raise RuntimeError("The official full-GPU baseline run is missing")
@@ -589,13 +645,18 @@ def verify_project_history(minimum_runs: int = 5) -> dict[str, Any]:
         raise RuntimeError("Official baseline is not registered")
     registered = client.get_model_version(REGISTERED_MODEL_NAME, version)
     if registered.run_id != official.info.run_id:
-        raise RuntimeError("Registry version does not resolve to the official baseline run")
+        raise RuntimeError(
+            "Registry version does not resolve to the official baseline run"
+        )
     production = client.get_model_version_by_alias(REGISTERED_MODEL_NAME, "production")
     if str(production.version) != str(version):
-        raise RuntimeError("Production alias does not resolve to the quality-gated official version")
+        raise RuntimeError(
+            "Production alias does not resolve to the quality-gated official version"
+        )
     gate = next(
         (
-            run for run in valid
+            run
+            for run in valid
             if run.data.tags.get("run_kind") == "production_promotion_quality_gate"
             and run.data.tags.get("promotion_decision") == "passed"
             and run.data.tags.get("model_version") == str(version)
@@ -603,7 +664,9 @@ def verify_project_history(minimum_runs: int = 5) -> dict[str, Any]:
         None,
     )
     if gate is None:
-        raise RuntimeError("A passing quality-gate run for the production version is missing")
+        raise RuntimeError(
+            "A passing quality-gate run for the production version is missing"
+        )
     return {
         "experiment_name": experiment.name,
         "valid_run_count": len(valid),
@@ -611,7 +674,9 @@ def verify_project_history(minimum_runs: int = 5) -> dict[str, Any]:
         "official_run_id": official.info.run_id,
         "official_model_version": version,
         "candidate_alias_version": str(
-            client.get_model_version_by_alias(REGISTERED_MODEL_NAME, "candidate").version
+            client.get_model_version_by_alias(
+                REGISTERED_MODEL_NAME, "candidate"
+            ).version
         ),
         "production_alias_set": True,
         "production_alias_version": str(production.version),

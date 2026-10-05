@@ -24,7 +24,9 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.service = FakePredictionService()
         transport = httpx.ASGITransport(app=create_app(self.service))
-        self.client = httpx.AsyncClient(transport=transport, base_url="http://testserver")
+        self.client = httpx.AsyncClient(
+            transport=transport, base_url="http://testserver"
+        )
 
     async def asyncTearDown(self):
         await self.client.aclose()
@@ -53,9 +55,13 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
                 response = await self.client.post("/predict", json=payload)
                 self.assertEqual(response.status_code, 422)
 
-    async def test_predict_returns_service_unavailable_when_model_artifact_is_missing(self):
+    async def test_predict_returns_service_unavailable_when_model_artifact_is_missing(
+        self,
+    ):
         transport = httpx.ASGITransport(app=create_app(UnavailablePredictionService()))
-        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
             response = await client.post("/predict", json={"review": "نص عربي"})
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json(), {"detail": "Sentiment model is unavailable"})
