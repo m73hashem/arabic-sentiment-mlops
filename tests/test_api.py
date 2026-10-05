@@ -13,6 +13,13 @@ class FakePredictionService:
         return {"label": "positive", "confidence": 0.875}
 
 
+class UnavailablePredictionService:
+    model_version = "unavailable-model"
+
+    def predict(self, review: str) -> dict[str, str | float]:
+        raise FileNotFoundError("local model artifact is missing")
+
+
 class ApiTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.service = FakePredictionService()
@@ -45,6 +52,13 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
             with self.subTest(payload=payload):
                 response = await self.client.post("/predict", json=payload)
                 self.assertEqual(response.status_code, 422)
+
+    async def test_predict_returns_service_unavailable_when_model_artifact_is_missing(self):
+        transport = httpx.ASGITransport(app=create_app(UnavailablePredictionService()))
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.post("/predict", json={"review": "نص عربي"})
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json(), {"detail": "Sentiment model is unavailable"})
 
 
 if __name__ == "__main__":

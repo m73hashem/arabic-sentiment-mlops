@@ -45,6 +45,15 @@ class DataPipelineTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "missing required columns"):
                 validate_raw_schema(loaded.drop(columns=["review"]))
 
+            path.write_bytes(b"no\trating\treview\n1\t5\tgood\n")
+            with self.assertRaisesRegex(ValueError, "UTF-16 little-endian BOM"):
+                load_raw_data(path)
+
+            duplicate_columns = pd.concat([loaded, loaded["rating"]], axis=1)
+            duplicate_columns.columns = [*loaded.columns, "rating"]
+            with self.assertRaisesRegex(ValueError, "duplicate column names"):
+                validate_raw_schema(duplicate_columns)
+
     def test_rating_mapping_invalid_values_and_missing_values_are_filtered(self):
         result, stats = prepare_reviews(synthetic_raw())
 
