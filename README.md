@@ -143,5 +143,3 @@ flowchart TD
 ```
 
 ## Project status
-
-See [PROJECT_STATUS.md](PROJECT_STATUS.md) for the implementation checklist.
