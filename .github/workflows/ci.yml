@@ -95,3 +95,37 @@ jobs:
           file: ./Dockerfile
           push: false
           tags: arabic-sentiment-mlops:ci
+          cache-to: type=gha,scope=arabic-sentiment-mlops,mode=max
+
+  push:
+    name: Push Docker image
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Get short commit SHA
+        id: commit
+        run: echo "sha_short=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            m73hashem/arabic-sentiment-mlops:latest
+            m73hashem/arabic-sentiment-mlops:sha-${{ steps.commit.outputs.sha_short }}
+          cache-from: type=gha,scope=arabic-sentiment-mlops
