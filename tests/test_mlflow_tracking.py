@@ -7,9 +7,8 @@ from unittest.mock import patch
 import mlflow
 from mlflow import MlflowClient
 
+import arabic_sentiment.mlflow_tracking as tracking
 from arabic_sentiment.mlflow_tracking import (
-    DEFAULT_ARTIFACT_ROOT,
-    DEFAULT_TRACKING_DB,
     EXPERIMENT_NAME,
     OFFICIAL_BASELINE_METRICS,
     REGISTERED_MODEL_NAME,
@@ -17,7 +16,6 @@ from arabic_sentiment.mlflow_tracking import (
     verify_project_history,
 )
 from arabic_sentiment.serving import (
-    LocalAraBERTService,
     MlflowModelService,
     create_prediction_service,
 )
@@ -25,11 +23,6 @@ from arabic_sentiment.serving import (
 
 class MlflowTrackingTests(unittest.TestCase):
     def test_local_tracking_logs_parameters_metrics_and_artifact(self):
-        self.addCleanup(
-            configure_tracking,
-            f"sqlite:///{DEFAULT_TRACKING_DB.as_posix()}",
-            DEFAULT_ARTIFACT_ROOT,
-        )
         with tempfile.TemporaryDirectory(
             prefix="arabic-sentiment-test-mlflow-"
         ) as temp_dir:
@@ -70,7 +63,7 @@ class MlflowTrackingTests(unittest.TestCase):
             )
             self.assertEqual(experiment.name, "arabic-sentiment")
 
-    def test_official_baseline_contract_and_real_history(self):
+    def test_official_baseline_contract_and_history_audit(self):
         self.assertEqual(
             set(OFFICIAL_BASELINE_METRICS),
             {
@@ -86,12 +79,109 @@ class MlflowTrackingTests(unittest.TestCase):
                 "test_f1",
             },
         )
-        if not Path("mlflow.db").is_file():
-            self.skipTest(
-                "local project MLflow history is generated locally, not checked into Git"
-            )
+        with tempfile.TemporaryDirectory(
+            prefix="arabic-sentiment-history-"
+        ) as directory:
+            root = Path(directory)
+            tracking_uri = f"sqlite:///{(root / 'tracking.db').as_posix()}"
+            artifact_root = root / "artifacts"
+            with (
+                patch.dict(os.environ, {"MLFLOW_TRACKING_URI": tracking_uri}),
+                patch.object(tracking, "DEFAULT_ARTIFACT_ROOT", artifact_root),
+            ):
+                self._populate_valid_project_history()
+                audit = verify_project_history(minimum_runs=5)
+                self._assert_history_audit(audit, tracking_uri)
 
-        audit = verify_project_history(minimum_runs=5)
+    def _populate_valid_project_history(self):
+        """Write coherent MLflow metadata in an isolated temporary tracking store."""
+        configure_tracking()
+        client = MlflowClient()
+        official_params = {
+            "model_name": "AraBERTv0.2-base",
+            "model_checkpoint": "aubmindlab/bert-base-arabertv02",
+            "seed": 42,
+            "epochs": 1,
+            "max_length": 96,
+            "batch_size": 16,
+            "gradient_accumulation_steps": 1,
+            "learning_rate": 2e-5,
+            "weight_decay": 0.01,
+            "optimizer": "AdamW",
+            "fp16": True,
+            "train_rows": 84558,
+            "validation_rows": 10570,
+            "test_rows": 10570,
+            "training_device": "Tesla T4",
+            "training_environment": "Google Colab",
+            "source_artifact_path": "test-fixture-existing-artifact-reference",
+        }
+
+        def log_run(name, params, metrics, tags):
+            with mlflow.start_run(run_name=name) as run:
+                mlflow.log_params(params)
+                mlflow.log_metrics(metrics)
+                mlflow.set_tags(tags)
+                mlflow.log_text("isolated test evidence", f"metadata/{name}.txt")
+            return run
+
+        official = log_run(
+            "official-baseline-fixture",
+            official_params,
+            OFFICIAL_BASELINE_METRICS,
+            {
+                "run_kind": "official_gpu_baseline",
+                "model_version": "1",
+                "source": "colab_gpu",
+                "training_performed_by_mlflow": "false",
+            },
+        )
+        for index in range(2):
+            log_run(
+                f"evaluation-fixture-{index}",
+                {"training_performed": False, "sample_count": 8},
+                {"validation_f1": 0.9},
+                {
+                    "experiment_type": "deterministic_local_evaluation",
+                    "sample_sha256": f"{index:064x}",
+                },
+            )
+        gate = log_run(
+            "quality-gate-fixture",
+            {"model_version": "1"},
+            {"validation_f1_margin": 0.001, "test_f1_margin": 0.001},
+            {
+                "run_kind": "production_promotion_quality_gate",
+                "promotion_decision": "passed",
+                "model_version": "1",
+            },
+        )
+        log_run(
+            "additional-evaluation-fixture",
+            {"training_performed": False, "sample_count": 4},
+            {"accuracy": 0.75},
+            {"run_kind": "test_evaluation"},
+        )
+
+        client.create_registered_model(REGISTERED_MODEL_NAME)
+        client.create_model_version(
+            REGISTERED_MODEL_NAME,
+            source=official.info.artifact_uri,
+            run_id=official.info.run_id,
+        )
+        client.set_registered_model_alias(REGISTERED_MODEL_NAME, "candidate", "1")
+        client.set_registered_model_alias(REGISTERED_MODEL_NAME, "production", "1")
+        client.set_model_version_tag(
+            REGISTERED_MODEL_NAME, "1", "promotion_quality_gate", "passed"
+        )
+        client.set_model_version_tag(
+            REGISTERED_MODEL_NAME,
+            "1",
+            "promotion_gate_run_id",
+            gate.info.run_id,
+        )
+
+    def _assert_history_audit(self, audit, tracking_uri):
         self.assertGreaterEqual(audit["valid_run_count"], 5)
         self.assertEqual(
             audit["candidate_alias_version"], audit["official_model_version"]
@@ -100,8 +190,7 @@ class MlflowTrackingTests(unittest.TestCase):
         self.assertEqual(
             audit["production_alias_version"], audit["official_model_version"]
         )
-        configure_tracking()
-        client = MlflowClient()
+        client = MlflowClient(tracking_uri)
         model_version = client.get_model_version(
             REGISTERED_MODEL_NAME, audit["official_model_version"]
         )
@@ -163,12 +252,14 @@ class MlflowTrackingTests(unittest.TestCase):
             self.assertEqual(service.model_version, "7")
 
         with patch.dict(os.environ, {}, clear=True):
-            service = create_prediction_service()
-            self.assertIsInstance(service, LocalAraBERTService)
-            if Path("models/full-gpu-arabert-inference").is_dir():
-                self.assertEqual(
-                    service.artifact_dir, Path("models/full-gpu-arabert-inference")
-                )
+            local_service = object()
+            with patch(
+                "arabic_sentiment.serving.LocalAraBERTService",
+                return_value=local_service,
+            ) as local_factory:
+                service = create_prediction_service()
+            self.assertIs(service, local_service)
+            local_factory.assert_called_once_with()
 
         with patch.dict(
             os.environ, {"SENTIMENT_MODEL_URI": "models:/arabic-sentiment/4"}

@@ -12,8 +12,6 @@ from arabic_sentiment.dvc_lineage import (
     mlflow_lineage_tags,
 )
 from arabic_sentiment.mlflow_tracking import (
-    DEFAULT_ARTIFACT_ROOT,
-    DEFAULT_TRACKING_DB,
     configure_tracking,
     start_project_run,
 )
@@ -88,11 +86,6 @@ class DvcLineageTests(unittest.TestCase):
             self.assertEqual(current_git_revision(), "unknown")
 
     def test_project_mlflow_run_records_dvc_hash_tag(self):
-        self.addCleanup(
-            configure_tracking,
-            f"sqlite:///{DEFAULT_TRACKING_DB.as_posix()}",
-            DEFAULT_ARTIFACT_ROOT,
-        )
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             pointer = self._write_pointer(root / "dataset.dvc")

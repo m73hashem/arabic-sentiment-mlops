@@ -4,10 +4,8 @@ import pandas as pd
 import pytest
 from mlflow import MlflowClient
 
-from arabic_sentiment import mlflow_experiments
+from arabic_sentiment import mlflow_experiments, mlflow_tracking
 from arabic_sentiment.mlflow_tracking import (
-    DEFAULT_ARTIFACT_ROOT,
-    DEFAULT_TRACKING_DB,
     EXPERIMENT_NAME,
     _stratified_subset,
     configure_tracking,
@@ -25,14 +23,14 @@ def test_tracking_configuration_reuses_named_experiment(tmp_path):
     second = MlflowClient(tracking_uri).get_experiment_by_name(EXPERIMENT_NAME)
     assert first.experiment_id == second.experiment_id
     assert artifact_root.is_dir()
-    configure_tracking(
-        f"sqlite:///{DEFAULT_TRACKING_DB.as_posix()}", DEFAULT_ARTIFACT_ROOT
-    )
 
 
 def test_official_baseline_requires_complete_existing_artifact(tmp_path, monkeypatch):
     tracking_uri = f"sqlite:///{(tmp_path / 'tracking.db').as_posix()}"
     monkeypatch.setenv("MLFLOW_TRACKING_URI", tracking_uri)
+    monkeypatch.setattr(
+        mlflow_tracking, "DEFAULT_ARTIFACT_ROOT", tmp_path / "artifacts"
+    )
     with pytest.raises(FileNotFoundError, match="inference artifact is incomplete"):
         log_official_gpu_baseline(tmp_path / "missing-model")
     assert (
@@ -57,14 +55,15 @@ def test_stratified_subset_is_reproducible_balanced_and_rejects_invalid_counts()
         _stratified_subset(frame.assign(sentiment="positive"), 5, 42)
 
 
-def test_history_audit_rejects_empty_experiment(tmp_path):
+def test_history_audit_rejects_empty_experiment(tmp_path, monkeypatch):
     tracking_uri = f"sqlite:///{(tmp_path / 'tracking.db').as_posix()}"
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", tracking_uri)
+    monkeypatch.setattr(
+        mlflow_tracking, "DEFAULT_ARTIFACT_ROOT", tmp_path / "artifacts"
+    )
     configure_tracking(tracking_uri, tmp_path / "artifacts")
     with pytest.raises(RuntimeError, match="at least 5 completed valid runs"):
         verify_project_history()
-    configure_tracking(
-        f"sqlite:///{DEFAULT_TRACKING_DB.as_posix()}", DEFAULT_ARTIFACT_ROOT
-    )
 
 
 def test_mlflow_cli_verify_only_skips_experiment_creation_and_evaluation(
