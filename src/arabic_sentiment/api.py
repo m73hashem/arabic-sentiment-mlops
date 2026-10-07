@@ -39,8 +39,8 @@ class HealthResponse(BaseModel):
 
 
 def create_app(service: PredictionService | None = None) -> FastAPI:
-    """Create the API with an injectable service for tests and future backends."""
-    prediction_service = service or create_prediction_service()
+    """Create the API, resolving its model service only when prediction is requested."""
+    prediction_service = service
     application = FastAPI(
         title="Arabic Sentiment Analysis API",
         version="1.0.0",
@@ -53,8 +53,12 @@ def create_app(service: PredictionService | None = None) -> FastAPI:
 
     @application.post("/predict", response_model=PredictionResponse)
     async def predict(request: PredictionRequest) -> PredictionResponse:
+        nonlocal prediction_service
         try:
+            if prediction_service is None:
+                prediction_service = create_prediction_service()
             result = prediction_service.predict(request.review)
+            model_version = prediction_service.model_version
         except (FileNotFoundError, OSError, ValueError, RuntimeError) as exc:
             raise HTTPException(
                 status_code=503, detail="Sentiment model is unavailable"
@@ -62,7 +66,7 @@ def create_app(service: PredictionService | None = None) -> FastAPI:
         return PredictionResponse(
             label=result["label"],
             confidence=result["confidence"],
-            model_version=prediction_service.model_version,
+            model_version=model_version,
         )
 
     return application
