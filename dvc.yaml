@@ -64,4 +64,5 @@ stages:
       - data/dvc/processed/test.csv
       - src/arabic_sentiment/dvc_pipeline/evaluate.py
     metrics:
-      - metrics/dvc-reproducibility.json
+      - metrics/dvc-reproducibility.json:
+          cache: false

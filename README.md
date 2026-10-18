@@ -113,6 +113,12 @@ The unchanged Phase 6.5 pipeline was observed to skip all three stages; changing
 
 Project-created MLflow runs include `dvc.dataset_hash` extracted from the raw data pointer and the current Git `HEAD` as `git_commit`. Historical MLflow runs were not changed because they predate this tag and do not establish the DVC hash of their training data. See [reports/module-5.md](reports/module-5.md) for the historical provenance limitation.
 
+## CI model quality gate
+
+Before Docker Hub publishing, GitHub Actions checks the tracked candidate metric `test.f1_macro` from `metrics/dvc-reproducibility.json` against the explicit baseline in `configs/quality-gate.json`. That baseline is the measured test macro-F1 of the current DVC TF-IDF + Logistic Regression reproducibility model; it is a regression floor, and equality passes. The value was obtained by running the DVC evaluator against the existing model and test split, not by inventing a score. The evaluator now computes macro-F1 across both `negative` and `positive` labels.
+
+Run the same gate locally with `PYTHONPATH=src python -m arabic_sentiment.quality_gate --candidate metrics/dvc-reproducibility.json --baseline configs/quality-gate.json`. The GitHub Actions `quality-gate` job runs after tests and must pass alongside the Docker build before the Docker Hub push job. This check covers the lightweight DVC reproducibility model only; it does not claim to evaluate or gate the official AraBERT model, whose large inference weights and local MLflow store are not available in clean CI.
+
 ## Development approach
 
 The project is developed incrementally according to the MLOps project requirements. The data pipeline, official baseline, FastAPI interface, Docker container validation, and local MLflow tracking/registry workflow are implemented; later roadmap components remain planned work.

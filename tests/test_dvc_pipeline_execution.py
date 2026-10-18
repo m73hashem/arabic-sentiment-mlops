@@ -221,10 +221,11 @@ def test_dvc_train_and_evaluate_commands_create_real_model_and_metrics(
     metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
     assert set(metrics) == {"validation", "test"}
     assert all(
-        set(split) == {"accuracy", "precision", "recall", "f1"}
+        set(split) == {"accuracy", "f1_macro", "precision", "recall", "f1"}
         for split in metrics.values()
     )
     assert all(0 <= split["accuracy"] <= 1 for split in metrics.values())
+    assert metrics["test"]["f1_macro"] == pytest.approx(0.5)
     assert "Wrote validation/test metrics" in capsys.readouterr().out
 
 

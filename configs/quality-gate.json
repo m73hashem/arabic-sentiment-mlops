@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "metric": "f1_macro",
+  "split": "test",
+  "baseline": {
+    "value": 0.9392593984962405,
+    "source": "DVC reproducibility evaluation, metrics/dvc-reproducibility.json",
+    "model": "TF-IDF + Logistic Regression (reproducibility baseline only)"
+  }
+}

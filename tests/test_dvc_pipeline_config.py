@@ -22,4 +22,6 @@ def test_dvc_pipeline_parameters_and_stages_are_declared():
         assert stage["deps"]
     assert dvc["stages"]["prepare"]["outs"] == ["data/dvc/processed"]
     assert dvc["stages"]["train"]["outs"] == ["models/dvc-reproducibility/model.joblib"]
-    assert dvc["stages"]["evaluate"]["metrics"] == ["metrics/dvc-reproducibility.json"]
+    assert dvc["stages"]["evaluate"]["metrics"] == [
+        {"metrics/dvc-reproducibility.json": {"cache": False}}
+    ]

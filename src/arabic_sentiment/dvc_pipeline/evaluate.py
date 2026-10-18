@@ -19,6 +19,15 @@ def evaluate_split(model, path: Path) -> dict[str, float]:
     predicted = model.predict(frame["review"].astype(str))
     return {
         "accuracy": float(accuracy_score(expected, predicted)),
+        "f1_macro": float(
+            f1_score(
+                expected,
+                predicted,
+                labels=["negative", "positive"],
+                average="macro",
+                zero_division=0,
+            )
+        ),
         "precision": float(
             precision_score(expected, predicted, pos_label="positive", zero_division=0)
         ),

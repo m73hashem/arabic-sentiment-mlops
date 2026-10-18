@@ -97,9 +97,28 @@ jobs:
           tags: arabic-sentiment-mlops:ci
           cache-to: type=gha,scope=arabic-sentiment-mlops,mode=max
 
+  quality-gate:
+    name: Model quality gate
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Compare candidate test macro-F1 with the configured baseline
+        run: >-
+          PYTHONPATH=src python -m arabic_sentiment.quality_gate
+          --candidate metrics/dvc-reproducibility.json
+          --baseline configs/quality-gate.json
+
   push:
     name: Push Docker image
-    needs: build
+    needs: [build, quality-gate]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
