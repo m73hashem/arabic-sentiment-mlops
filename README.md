@@ -1,5 +1,7 @@
 # Arabic Sentiment Analysis MLOps
 
+[![GitHub Actions CI](https://github.com/m73hashem/arabic-sentiment-mlops/actions/workflows/ci.yml/badge.svg)](https://github.com/m73hashem/arabic-sentiment-mlops/actions/workflows/ci.yml)
+
 A production-oriented MLOps project for Arabic sentiment classification using a transformer-based deep learning model. The planned model family is Arabic BERT, such as AraBERT.
 
 ## Installation
