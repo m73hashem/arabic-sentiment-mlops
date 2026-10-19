@@ -47,6 +47,12 @@ class LocalAraBERTService:
             self._predictor = SentimentPredictor(self.artifact_dir, device="cpu")
         return self._predictor.predict(review)
 
+    def predict_many(self, reviews: list[str]) -> list[dict[str, Any]]:
+        """Predict a batch through the shared tokenizer/model implementation."""
+        if self._predictor is None:
+            self._predictor = SentimentPredictor(self.artifact_dir, device="cpu")
+        return self._predictor.predict_many(reviews)
+
 
 class MlflowModelService:
     """Serve an MLflow model URI without coupling model selection to FastAPI."""

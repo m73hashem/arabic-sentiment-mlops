@@ -1,0 +1,38 @@
+service: "serving.service:SentimentService"
+
+# Package the service and src-layout project code, never the local model or data.
+include:
+  - "serving/__init__.py"
+  - "serving/service.py"
+  - "src/arabic_sentiment/*.py"
+  - "src/arabic_sentiment/**/*.py"
+  - "requirements-api.txt"
+  - "requirements-bento.txt"
+  - "pyproject.toml"
+exclude:
+  - "models/**"
+  - "data/**"
+  - ".git/**"
+  - ".venv/**"
+  - "mlartifacts/**"
+  - "mlflow.db*"
+
+python:
+  requirements_txt: "requirements-bento.txt"
+  extra_index_url:
+    - "https://download.pytorch.org/whl/cpu"
+  is_src_layout: true
+  # The requirements file pins the service dependency set explicitly.
+  lock_packages: false
+
+# Bento's container build uses uv. The PyTorch CPU index is an extra source,
+# not a mirror of PyPI, so permit uv to look across both configured indexes.
+# This is a build-only variable and is not baked into the runtime environment.
+envs:
+  - name: UV_INDEX_STRATEGY
+    value: unsafe-best-match
+    stage: build
+
+# Supply model files outside the Bento package and set SENTIMENT_MODEL_DIR at
+# runtime to their mounted/copy-in directory. The existing local-path fallback
+# remains available when serving from the repository root.
