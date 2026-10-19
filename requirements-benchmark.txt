@@ -1,0 +1,2 @@
+# Isolated load-test tooling; install separately from the model runtime.
+locust==2.46.7
