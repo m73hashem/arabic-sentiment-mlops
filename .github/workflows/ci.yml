@@ -54,6 +54,7 @@ jobs:
           cache-dependency-path: |
             pyproject.toml
             requirements-base.txt
+            requirements-bento.txt
 
       - name: Install project and development dependencies
         run: >-
@@ -61,6 +62,7 @@ jobs:
           --index-url https://pypi.org/simple
           --extra-index-url https://download.pytorch.org/whl/cpu
           -e ".[dev]"
+          -r requirements-bento.txt
 
       - name: Run tests with coverage
         run: >-
