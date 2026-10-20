@@ -96,9 +96,7 @@ def score_reviews(
                 batch = records[offset : offset + batch_size]
                 batch_ids = [source_id for source_id, _ in batch]
                 try:
-                    predictions = service.predict_many(
-                        [review for _, review in batch]
-                    )
+                    predictions = service.predict_many([review for _, review in batch])
                 except Exception as exc:
                     raise RuntimeError(
                         "inference failed for batch source_row_id values "
@@ -143,7 +141,9 @@ def score_reviews(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input", type=Path, required=True, help="CSV with a review column")
+    parser.add_argument(
+        "--input", type=Path, required=True, help="CSV with a review column"
+    )
     parser.add_argument(
         "--output", type=Path, default=DEFAULT_OUTPUT, help="prediction CSV output path"
     )

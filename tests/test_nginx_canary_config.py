@@ -1,16 +1,12 @@
 import re
 from pathlib import Path
 
-CONFIG = (
-    Path(__file__).resolve().parents[1] / "deploy" / "nginx" / "canary.conf"
-)
+CONFIG = Path(__file__).resolve().parents[1] / "deploy" / "nginx" / "canary.conf"
 
 
 def test_nginx_routes_weighted_traffic_to_explicit_stable_and_canary_upstreams():
     config = CONFIG.read_text(encoding="utf-8")
-    servers = re.findall(
-        r"server\s+([\w.-]+):(\d+)\s+weight=(\d+);", config
-    )
+    servers = re.findall(r"server\s+([\w.-]+):(\d+)\s+weight=(\d+);", config)
 
     assert servers == [
         ("arabic-sentiment-stable", "8000", "95"),

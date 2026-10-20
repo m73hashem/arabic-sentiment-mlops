@@ -33,9 +33,7 @@ def test_batch_scoring_validates_schema_minimum_size_and_nonblank_reviews(tmp_pa
         _SCORING.score_reviews(too_small, tmp_path / "out.csv")
 
     blank_review = tmp_path / "blank.csv"
-    blank_review.write_text(
-        "source_row_id,review\nrow-1,   \n", encoding="utf-8"
-    )
+    blank_review.write_text("source_row_id,review\nrow-1,   \n", encoding="utf-8")
     with pytest.raises(ValueError, match="blank review.*row-1"):
         _SCORING.score_reviews(blank_review, tmp_path / "out.csv")
 
@@ -58,9 +56,12 @@ def test_batch_scoring_writes_ordered_predictions_in_batches(tmp_path):
                 for index, _ in enumerate(reviews)
             ]
 
-    assert _SCORING.score_reviews(
-        source, destination, batch_size=400, service_factory=Predictor
-    ) == 1_003
+    assert (
+        _SCORING.score_reviews(
+            source, destination, batch_size=400, service_factory=Predictor
+        )
+        == 1_003
+    )
     assert [len(batch) for batch in calls] == [400, 400, 203]
 
     with destination.open(encoding="utf-8", newline="") as stream:

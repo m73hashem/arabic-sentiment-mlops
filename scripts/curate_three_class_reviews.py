@@ -74,8 +74,12 @@ def curate_three_class(
     source_eligible = rating_is_valid & nonempty_review
 
     source_group_labels = (
-        pd.DataFrame({"review": normalized.loc[source_eligible],
-                      "sentiment": mapped.loc[source_eligible]})
+        pd.DataFrame(
+            {
+                "review": normalized.loc[source_eligible],
+                "sentiment": mapped.loc[source_eligible],
+            }
+        )
         .groupby("review", sort=False)["sentiment"]
         .agg(lambda values: frozenset(values))
     )
@@ -127,12 +131,16 @@ def curate_three_class(
 
     curated = raw.loc[retained].copy()
     curated["sentiment"] = mapped.loc[retained].astype("string")
-    final_groups = pd.DataFrame(
-        {
-            "normalized": normalized.loc[retained],
-            "sentiment": mapped.loc[retained],
-        }
-    ).groupby("normalized", sort=False)["sentiment"].nunique()
+    final_groups = (
+        pd.DataFrame(
+            {
+                "normalized": normalized.loc[retained],
+                "sentiment": mapped.loc[retained],
+            }
+        )
+        .groupby("normalized", sort=False)["sentiment"]
+        .nunique()
+    )
     remaining_conflicts = int(final_groups.gt(1).sum())
     if remaining_conflicts:
         raise RuntimeError("Curated output contains conflicting normalized labels")
@@ -228,9 +236,7 @@ def curate_three_class(
             "source_rows": len(reference_raw),
             "normalized_text_groups": int(reference["review"].nunique()),
             "candidate_conflict_groups": len(reference_conflicting_groups),
-            "candidate_rows_in_conflicting_groups": int(
-                v2_conflict_rows.sum()
-            ),
+            "candidate_rows_in_conflicting_groups": int(v2_conflict_rows.sum()),
             "candidate_conflict_groups_already_excluded_by_source_rule": len(
                 reference_conflicting_groups & source_conflicting_groups
             ),

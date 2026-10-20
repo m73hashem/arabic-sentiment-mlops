@@ -9,11 +9,11 @@ from arabic_sentiment.data import RAW_COLUMNS, load_raw_data
 from arabic_sentiment.preprocessing import clean_review_text
 
 _SCRIPT_PATH = (
-    Path(__file__).resolve().parents[1]
-    / "scripts"
-    / "curate_three_class_reviews.py"
+    Path(__file__).resolve().parents[1] / "scripts" / "curate_three_class_reviews.py"
 )
-_SPEC = importlib.util.spec_from_file_location("curate_three_class_reviews", _SCRIPT_PATH)
+_SPEC = importlib.util.spec_from_file_location(
+    "curate_three_class_reviews", _SCRIPT_PATH
+)
 assert _SPEC is not None and _SPEC.loader is not None
 _CURATION = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(_CURATION)
@@ -119,7 +119,10 @@ def test_candidate_is_deterministic_and_exclusion_audit_preserves_source_ids(
     assert source.read_bytes() == original_source
     assert first == second
     assert first["source"]["sha256"] == hashlib.sha256(original_source).hexdigest()
-    assert first["curation"]["output_sha256"] == hashlib.sha256(first_candidate).hexdigest()
+    assert (
+        first["curation"]["output_sha256"]
+        == hashlib.sha256(first_candidate).hexdigest()
+    )
 
     audit = pd.read_csv(tmp_path / "excluded-rows.tsv", sep="\t", dtype="string")
     assert set(audit["source_row_id"]) == {"1", "2", "4", "7", "8", "9", "10"}
