@@ -38,6 +38,7 @@ numpy==2.5.3
 packaging==26.3
 pandas==3.0.6
 propcache==0.5.4
+prometheus_client==0.26.0
 psutil==7.2.2
 pyarrow==25.0.1
 Pygments==2.21.0

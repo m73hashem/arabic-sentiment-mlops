@@ -1,0 +1,75 @@
+{
+  "curation": {
+    "excluded_rows_by_reason": {
+      "duplicate_normalized_label": 9123,
+      "source_label_conflict": 449
+    },
+    "excluded_rows_total": 9572,
+    "exclusion_audit_path": "three-class-exclusions.tsv",
+    "exclusion_audit_rows": 9572,
+    "exclusion_audit_sha256": "d23122bba865dcfbf76bb4060df2b25138397fffbe72993f55c7c4d8145ff050",
+    "output_bytes": 164385342,
+    "output_label_counts": {
+      "negative": 52161,
+      "neutral": 79491,
+      "positive": 268338
+    },
+    "output_rows": 399990,
+    "output_sha256": "58f3da58519e09cef4c1cd18c4bc7479d7bd6995394fa4dac91564b2d9be36df",
+    "remaining_normalized_label_conflicts": 0,
+    "source_conflict_groups": 67,
+    "source_conflict_rows": 449,
+    "source_row_id_preserved_in_output": true
+  },
+  "policy": {
+    "deduplication": "retain first eligible source occurrence per normalized text and mapped label",
+    "existing_v2_conflicts": "exclude every candidate row in a normalized group whose label set differs from Version 2",
+    "normalization": "arabic_sentiment.preprocessing.clean_review_text",
+    "rating_to_sentiment": {
+      "1": "negative",
+      "2": "negative",
+      "3": "neutral",
+      "4": "positive",
+      "5": "positive"
+    },
+    "source_conflicts": "exclude every row in normalized groups with multiple mapped labels"
+  },
+  "source": {
+    "bytes": 159337424,
+    "delimiter": "tab",
+    "empty_review_rows": 0,
+    "encoding": "UTF-16 little-endian",
+    "exact_duplicate_excess_rows": 9461,
+    "exact_duplicate_groups": 2693,
+    "malformed_or_out_of_range_rating_rows": 0,
+    "missing_rating_rows": 0,
+    "normalized_duplicate_excess_rows": 9505,
+    "normalized_duplicate_groups": 2710,
+    "path": "unbalanced-reviews.txt",
+    "previously_cited_rows": 373750,
+    "rating_counts": {
+      "1": 14382,
+      "2": 38467,
+      "3": 80326,
+      "4": 132208,
+      "5": 144179
+    },
+    "row_count_matches_previous_citation": false,
+    "rows": 409562,
+    "sha256": "fc3bb8210d4f8a658b77c92fe659e532173432679992d5ae1e6c91969681748b",
+    "source_id_column": "no",
+    "source_id_duplicate_rows": 0,
+    "source_id_missing_rows": 0
+  },
+  "version_2_reference": {
+    "candidate_conflict_groups": 26,
+    "candidate_conflict_groups_already_excluded_by_source_rule": 26,
+    "candidate_rows_already_excluded_by_source_rule": 176,
+    "candidate_rows_excluded_only_by_v2_rule": 0,
+    "candidate_rows_in_conflicting_groups": 176,
+    "normalized_text_groups": 104019,
+    "path": "balanced-reviews.txt",
+    "remaining_candidate_conflict_groups": 0,
+    "source_rows": 105657
+  }
+}

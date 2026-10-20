@@ -57,12 +57,12 @@ stages:
       --model models/dvc-reproducibility/model.joblib
       --validation data/dvc/processed/validation.csv
       --test data/dvc/processed/test.csv
-      --output metrics/dvc-reproducibility.json
+      --output metrics/generated/dvc-reproducibility.json
     deps:
       - models/dvc-reproducibility/model.joblib
       - data/dvc/processed/validation.csv
       - data/dvc/processed/test.csv
       - src/arabic_sentiment/dvc_pipeline/evaluate.py
     metrics:
-      - metrics/dvc-reproducibility.json:
+      - metrics/generated/dvc-reproducibility.json:
           cache: false

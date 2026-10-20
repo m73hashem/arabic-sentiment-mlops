@@ -40,6 +40,8 @@ models/
 *.onnx
 data/processed/*
 !data/processed/.gitkeep
+data/scoring/input/
+data/scoring/output/
 
 # Experiment tracking and data versioning caches
 mlruns/
