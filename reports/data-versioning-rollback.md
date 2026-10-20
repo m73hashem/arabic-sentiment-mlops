@@ -43,13 +43,14 @@ order. A dataframe equality check confirmed that Version 2 is exactly Version
 | Version | Git reference for pointer | DVC MD5 | Size (bytes) | SHA-256 |
 | --- | --- | --- | ---: | --- |
 | 1 | `8f976ca2fa718f68f8083779295447ede35c6592` (`data/raw/balanced-reviews.txt.dvc`) | `8b3523338727a05a3f8bac9522073b75` | 43,480,662 | `86c1ae1b41267262d806275df4c0385b7948b18a685c93212ca858aa8df2ab02` |
-| 2 | Version 2 curation commit containing this pointer; resolve its SHA with `git log -1 --format=%H -- data/raw/balanced-reviews.txt.dvc` | `758ea6d7d48541f740599c901859ac42` | 43,427,176 | `4b74b10e8a076ba2c6fa5c06242ce640c782988882c9d557688ad3e312672815` |
+| 2 | `8bd676ea6688fe0ab2c315d04d42aa2f5bc49a6d` (`data/raw/balanced-reviews.txt.dvc`) | `758ea6d7d48541f740599c901859ac42` | 43,427,176 | `4b74b10e8a076ba2c6fa5c06242ce640c782988882c9d557688ad3e312672815` |
 
-Version 2's dataset is represented by the committed
-`data/raw/balanced-reviews.txt.dvc` pointer. Its DVC object was uploaded and
-retrieved in an isolated temporary worktree. The historical retrieval test
-switched pointers by copying metadata; it did not perform a Git checkout
-between the Version 1 and Version 2 commits.
+Both versions have committed DVC pointers and content-addressed objects in the
+existing MinIO remote. On an Ubuntu host, the checkout-and-rollback test used
+one temporary isolated Git worktree: it checked out each recorded commit,
+retrieved `data/raw/balanced-reviews.txt` with DVC, verified the expected MD5,
+then returned to Version 1 and verified its MD5 again. The worktree was removed
+after verification; the primary checkout was clean and unchanged.
 
 ## Remote and retrieval
 
@@ -63,27 +64,17 @@ Commands and observed results:
 | --- | --- | --- |
 | Track Version 2 | `.venv/bin/dvc add data/raw/balanced-reviews.txt` | Exit 0; pointer updated to MD5 `758ea6d7d48541f740599c901859ac42`, size 43,427,176 |
 | Upload Version 2 raw object | `.venv/bin/dvc push data/raw/balanced-reviews.txt.dvc` | Exit 0; `1 file pushed` |
-| Retrieve Version 1 | In `/tmp/arabic-v1-check` at detached Git ref `8f976ca…`: `.venv/bin/dvc pull data/raw/balanced-reviews.txt.dvc` | Exit 0; 1 file fetched; MD5 and SHA-256 matched Version 1 |
-| Retrieve Version 2 | In `/tmp/arabic-v2-check` at base `HEAD`, after copying in the uncommitted Version 2 pointer: `.venv/bin/dvc pull data/raw/balanced-reviews.txt.dvc` | Exit 0; 1 file fetched; MD5 and SHA-256 matched Version 2 |
+| Checkout and retrieve Version 1 | In the temporary isolated worktree, checkout `8f976ca2fa718f68f8083779295447ede35c6592`; run `dvc pull data/raw/balanced-reviews.txt.dvc` | Successful; retrieved dataset MD5 verified as `8b3523338727a05a3f8bac9522073b75` |
+| Checkout and retrieve Version 2 | In the same worktree, checkout `8bd676ea6688fe0ab2c315d04d42aa2f5bc49a6d`; run `dvc pull data/raw/balanced-reviews.txt.dvc` | Successful; retrieved dataset MD5 verified as `758ea6d7d48541f740599c901859ac42` |
+| Roll back to Version 1 | Checkout `8f976ca2fa718f68f8083779295447ede35c6592` again and run `dvc pull data/raw/balanced-reviews.txt.dvc` | Successful; Version 1 MD5 verified again as `8b3523338727a05a3f8bac9522073b75` |
 | Push Version 1 pipeline objects | `/tmp/arabic-v1-check`: `.venv/bin/dvc push` | Exit 0; 6 files pushed; `dvc status -c`: cache and remote in sync |
 | Push Version 2 pipeline objects | `/tmp/arabic-v2-check`: `.venv/bin/dvc push` | Exit 0; 5 files pushed; `dvc status -c`: cache and remote in sync |
 | Push current primary-checkout DVC object | `.venv/bin/dvc push` | Exit 0; 1 file pushed; final `dvc status -c`: `Cache and remote 'minio' are in sync.` |
 
-After the pipeline ownership fix described below, primary-checkout
+At the time of the earlier pipeline verification, the primary checkout's
 `dvc status` reported the pipeline up to date and `dvc status -c` reported the
-remote cache in sync. Version 2 is still not committed to Git.
-
-The temporary switch demonstration was performed in `/tmp/arabic-v1-check`:
-the Version 2 pointer was copied into that isolated checkout and `dvc pull`
-restored Version 2 (MD5 `758ea6d7d48541f740599c901859ac42`, SHA-256
-`4b74b10e8a076ba2c6fa5c06242ce640c782988882c9d557688ad3e312672815`). The
-pointer was then restored with `git show HEAD:data/raw/balanced-reviews.txt.dvc`
-and `dvc pull` restored Version 1 (MD5
-`8b3523338727a05a3f8bac9522073b75`, SHA-256
-`86c1ae1b41267262d806275df4c0385b7948b18a685c93212ca858aa8df2ab02`). Both
-pull operations exited 0. This proves content-addressed DVC retrieval and
-restoration in an isolated checkout; it is not yet a Git checkout between two
-committed references because Version 2 is uncommitted.
+remote cache in sync. The later host-side test additionally verified Git
+checkout between both committed references and restoration of Version 1.
 
 ## Pipeline reproduction
 
@@ -129,35 +120,40 @@ retained in the table below.
 `0.93745`, and macro-F1 `0.93716`. `dvc metrics diff` showed no `HEAD` metric
 for the new generated path; it listed the tracked CI snapshot's `HEAD` values
 without a workspace metric because the snapshot is no longer a DVC stage
-metric. The current primary checkout's subsequent `dvc status` reported `Data
-and pipelines are up to date.`
+metric. That run's subsequent `dvc status` reported that data and pipelines were up to date.
+
+During this documentation update, a fresh `dvc status` using the writable
+`DVC_SITE_CACHE_DIR=/tmp/dvc-site-cache-mah-audit` exited 255 with `Unable to
+acquire lock`. Read-only diagnostics found writable, user-owned lock paths
+`.dvc/tmp/lock` and `.dvc/tmp/rwlock.lock` (contents `2` and `10`), no DVC or
+Python process visible in this execution environment, and no matching OS lock
+in `lslocks`. This sandbox does not establish whether a host-side process owns
+the lock or whether it is stale, so no lock file was changed or removed.
 
 | Version | Prepare rows | Training rows | Model output bytes | Test accuracy | Test F1 | Test macro-F1 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | 1 | 105,698 | 84,558 | 1,598,512 | 0.9392620624408704 | 0.9396616541353383 | Not emitted by the Version 1 evaluator schema |
 | 2 | 105,657 | 84,525 | 1,599,184 | 0.9385765663448798 | 0.9389061470394428 | 0.9385747787247837 |
 
-The Version 1 and Version 2 reports come from different evaluator revisions;
-Version 1 did not emit `f1_macro`, so these values are not a direct macro-F1
-comparison. Version 2 validation metrics were accuracy `0.9371569184175658`,
+The quality-gate snapshots report Version 1 and Version 2 test macro-F1 values,
+but the curated dataset changes group membership and the deterministic split.
+The test rows therefore differ between versions, so this is not a controlled
+same-holdout comparison or a causal estimate of curation impact. Version 2
+validation metrics were accuracy `0.9371569184175658`,
 precision `0.932883389576303`, recall `0.9420673987126088`, F1
 `0.9374529012810852`, and macro-F1 `0.9371555111198122`.
 
-## Remaining delivery step and limits
+## Rollback scope and limits
 
-The Handbook requires a dataset pointer in Git, `dvc pull`, and `dvc repro`
-after checking out recorded Git revisions. Version 1 satisfies this at
-`8f976ca…`; Version 2 now has a durable Git reference in the commit containing
-the pointer above. DVC retrieval and reproduction are verified for both
-versions. The primary-checkout DVC ownership conflict is resolved by writing
-generated metrics to a separate ignored path. A Git checkout round-trip
-between the two committed references has not yet been demonstrated; the
-previous isolated version switch copied the pointer instead of checking out
-the Version 2 commit.
+The Git/DVC checkout-and-rollback requirement is complete for the two recorded
+dataset versions. The host-side test retrieved Version 1, retrieved Version 2,
+then checked out Version 1 and retrieved it again; the expected MD5 was
+verified at each step. Pipeline reproduction results are recorded separately
+above. Dataset rollback does not demonstrate MLflow model-registry rollback or
+production-service rollback.
 
-This evidence concerns dataset version rollback and reproducibility only. It
-does not demonstrate MLflow model-registry rollback or production-service
-rollback.
+The DVC pointer and both dataset content hashes are versioned in Git/DVC; the
+dataset bytes remain outside Git.
 
 ## Regression checks
 

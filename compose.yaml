@@ -1,0 +1,16 @@
+services:
+  api:
+    image: arabic-sentiment-mlops:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_UID: ${APP_UID:-10001}
+        APP_GID: ${APP_GID:-10001}
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      SENTIMENT_MODEL_DIR: /models/full-gpu-arabert-inference
+      HF_HUB_OFFLINE: "1"
+    volumes:
+      - ${SENTIMENT_MODEL_HOST_PATH:-./models/full-gpu-arabert-inference}:/models/full-gpu-arabert-inference:ro

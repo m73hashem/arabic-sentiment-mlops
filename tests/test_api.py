@@ -57,6 +57,16 @@ class ApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
 
+    async def test_prometheus_metrics_endpoint_exposes_prediction_metrics(self):
+        await self.client.post("/predict", json={"review": "نص عربي"})
+
+        response = await self.client.get("/metrics")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("sentiment_prediction_requests_total", response.text)
+        self.assertIn("sentiment_prediction_confidence_score", response.text)
+        self.assertIn("sentiment_prediction_request_duration_seconds", response.text)
+
     async def test_predict_success_and_response_fields(self):
         review = "الخدمة ممتازة والغرفة نظيفة"
         response = await self.client.post("/predict", json={"review": review})

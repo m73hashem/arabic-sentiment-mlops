@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: arabic-sentiment-api
+    metrics_path: /metrics
+    static_configs:
+      # Prometheus is expected to run on the same host as the local API.
+      # Change this target if the API is exposed at another reachable address.
+      - targets: ["127.0.0.1:8000"]

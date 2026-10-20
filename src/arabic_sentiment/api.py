@@ -1,11 +1,18 @@
 """FastAPI application for local Arabic sentiment prediction."""
 
+from time import perf_counter
 from typing import Literal, Protocol
 
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel, Field, field_validator
 
+from .monitoring import (
+    PREDICTION_CONFIDENCE,
+    PREDICTION_DURATION,
+    PREDICTION_REQUESTS,
+    prometheus_payload,
+)
 from .serving import create_prediction_service
 
 
@@ -51,23 +58,39 @@ def create_app(service: PredictionService | None = None) -> FastAPI:
     async def health() -> HealthResponse:
         return HealthResponse(status="ok")
 
+    @application.get("/metrics", include_in_schema=False)
+    async def metrics() -> Response:
+        payload, content_type = prometheus_payload()
+        return Response(content=payload, media_type=content_type)
+
     @application.post("/predict", response_model=PredictionResponse)
     async def predict(request: PredictionRequest) -> PredictionResponse:
         nonlocal prediction_service
+        started_at = perf_counter()
         try:
             if prediction_service is None:
                 prediction_service = create_prediction_service()
             result = prediction_service.predict(request.review)
             model_version = prediction_service.model_version
         except (FileNotFoundError, OSError, ValueError, RuntimeError) as exc:
+            PREDICTION_REQUESTS.labels(status="unavailable").inc()
+            PREDICTION_DURATION.labels(status="unavailable").observe(
+                perf_counter() - started_at
+            )
             raise HTTPException(
                 status_code=503, detail="Sentiment model is unavailable"
             ) from exc
-        return PredictionResponse(
+        response = PredictionResponse(
             label=result["label"],
             confidence=result["confidence"],
             model_version=model_version,
         )
+        PREDICTION_REQUESTS.labels(status="success").inc()
+        PREDICTION_CONFIDENCE.observe(response.confidence)
+        PREDICTION_DURATION.labels(status="success").observe(
+            perf_counter() - started_at
+        )
+        return response
 
     return application
 
