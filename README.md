@@ -20,7 +20,7 @@ python -m pip install -e ".[dev]"
 
 ## Dataset
 
-This project uses the HARD Arabic Hotel Reviews Dataset, tracked by DVC rather than stored in Git. The current Version 2 at `data/raw/balanced-reviews.txt` is UTF-16 little-endian, tab-separated, and excludes 41 rows from eight normalized-review groups with conflicting mapped sentiments. Version 1 remains recoverable from Git commit `8f976ca2fa718f68f8083779295447ede35c6592` and its DVC pointer. Retrieve the selected version with `dvc pull data/raw/balanced-reviews.txt.dvc`; access requires the configured MinIO remote and local credentials.
+This project uses the HARD Arabic Hotel Reviews Dataset, tracked by DVC rather than stored in Git. The active `data/raw/balanced-reviews.txt` pointer currently selects Version 1 (MD5 `8b3523338727a05a3f8bac9522073b75`). Version 2 remains preserved in Git history at `8bd676ea6688fe0ab2c315d04d42aa2f5bc49a6d`; it excludes 41 rows from eight normalized-review groups with conflicting mapped sentiments. Retrieve the selected version with `dvc pull data/raw/balanced-reviews.txt.dvc`; access requires the configured MinIO remote and local credentials.
 
 ## Phase 1 — Data ingestion and preprocessing
 
@@ -157,7 +157,7 @@ Project-created MLflow runs now receive `dvc.dataset_hash`, read from `data/raw/
 
 ## Phase 6 — DVC data versioning and reproducibility
 
-The raw HARD dataset is tracked by DVC at `data/raw/balanced-reviews.txt`, with its Git-manageable pointer at `data/raw/balanced-reviews.txt.dvc`. The current Version 2 pointer records MD5 `758ea6d7d48541f740599c901859ac42`; Version 1 remains available at Git revision `8f976ca2fa718f68f8083779295447ede35c6592`. Version 2 excludes the 41 source rows in eight normalized-review groups mapped to conflicting sentiments. The `minio` DVC remote uses bucket `arabic-sentiment-dvc` at the local MinIO S3 endpoint. Credentials are supplied through ignored local configuration (`.dvc/config.local` and `.env.minio`); the Compose service stores MinIO data in a Docker-managed named volume outside the repository.
+The raw HARD dataset is tracked by DVC at `data/raw/balanced-reviews.txt`, with its Git-manageable pointer at `data/raw/balanced-reviews.txt.dvc`. The active pointer selects Version 1 (MD5 `8b3523338727a05a3f8bac9522073b75`), recorded at Git revision `8f976ca2fa718f68f8083779295447ede35c6592`. Version 2 (MD5 `758ea6d7d48541f740599c901859ac42`) remains preserved at Git revision `8bd676ea6688fe0ab2c315d04d42aa2f5bc49a6d` and excludes the 41 source rows in eight normalized-review groups mapped to conflicting sentiments. The `minio` DVC remote uses bucket `arabic-sentiment-dvc` at the local MinIO S3 endpoint. Credentials are supplied through ignored local configuration (`.dvc/config.local` and `.env.minio`); the Compose service stores MinIO data in a Docker-managed named volume outside the repository.
 
 The local reproducibility pipeline in `dvc.yaml` is `prepare → train → evaluate`, configured by `params.yaml` (seed 42 and 80/10/10 splits). Its model is TF-IDF + Logistic Regression and is **only** a lightweight DVC demonstration. The official baseline and production/registry model remains the full-GPU AraBERT model at `models/full-gpu-arabert-inference/`.
 
@@ -182,13 +182,13 @@ cp metrics/generated/dvc-reproducibility.json metrics/dvc-reproducibility.json
 The pre-curation candidate snapshot is retained as
 `metrics/dvc-reproducibility-v1-baseline.json`.
 
-The unchanged Phase 6.5 pipeline was observed to skip all three stages; changing only `model.C` caused DVC to keep `prepare` cached and rerun `train` and `evaluate`, and restoring `C=1.0` restored the cached outputs. Evaluation metrics are computed for validation and test splits. The Version 1 and Version 2 raw-data objects and reproducibility pipeline outputs were pushed to MinIO; the final `dvc status -c` reported the cache and remote in sync. After Version 2 reproduction, the local pipeline reports up to date.
+The unchanged Phase 6.5 pipeline was observed to skip all three stages; changing only `model.C` caused DVC to keep `prepare` cached and rerun `train` and `evaluate`, and restoring `C=1.0` restored the cached outputs. Evaluation metrics are computed for validation and test splits. The Version 1 and Version 2 raw-data objects and reproducibility pipeline outputs were pushed to MinIO; the final `dvc status -c` reported the cache and remote in sync. The active Version 1 pipeline currently reports up to date locally.
 
 Project-created MLflow runs include `dvc.dataset_hash` extracted from the raw data pointer and the current Git `HEAD` as `git_commit`. Historical MLflow runs were not changed because they predate this tag and do not establish the DVC hash of their training data. See [reports/module-5.md](reports/module-5.md) for the historical provenance limitation.
 
 ## CI model quality gate
 
-Before Docker Hub publishing, GitHub Actions checks the tracked candidate metric `test.f1_macro` from `metrics/dvc-reproducibility.json` against the explicit baseline in `configs/quality-gate.json`. The unchanged Version 1 regression floor, `0.9392593984962405`, is preserved in `metrics/dvc-reproducibility-v1-baseline.json`; equality passes. The current Version 2 measured candidate is `0.9385747787247837`, below the floor, so the gate correctly fails and Docker Hub publishing remains blocked. No threshold was changed. The evaluator computes macro-F1 across `negative` and `positive`. Because curation changes grouped split membership, the V1 and V2 test scores are based on different examples; the difference is not a controlled same-holdout comparison or a causal estimate of curation impact.
+Before Docker Hub publishing, GitHub Actions checks the tracked candidate metric `test.f1_macro` from `metrics/dvc-reproducibility.json` against the explicit baseline in `configs/quality-gate.json`. The active Version 1 candidate reports `0.9392593984962405`, equal to the unchanged baseline preserved in `metrics/dvc-reproducibility-v1-baseline.json`; equality passes. The rejected Version 2 metric is preserved in `metrics/dvc-reproducibility-v2-rejected.json` at `0.9385747787247837`, below the same baseline. This means Version 2 was not accepted for release under the current gate; it does not establish that Version 2 is worse, because V1 and V2 were evaluated on different test examples. Their score difference is not a controlled same-holdout comparison or a causal estimate of curation impact. The evaluator computes macro-F1 across `negative` and `positive`; the baseline and threshold were not changed. This is local validation only: it does not establish a passing GitHub Actions run or successful Docker Hub publishing.
 
 Run the same gate locally with `PYTHONPATH=src python -m arabic_sentiment.quality_gate --candidate metrics/dvc-reproducibility.json --baseline configs/quality-gate.json`. The GitHub Actions `quality-gate` job runs after tests and must pass alongside the Docker build before the Docker Hub push job. This check covers the lightweight DVC reproducibility model only; it does not claim to evaluate or gate the official AraBERT model, whose large inference weights and local MLflow store are not available in clean CI.
 
@@ -273,11 +273,12 @@ flowchart TD
     SHARED --> API[FastAPI Docker image]
     SHARED --> BENTO[BentoML service]
     MLflow[Local MLflow tracking and registry] -. tracks registered artifact .-> OFFICIAL
-    CI[GitHub Actions: lint, tests, coverage, Docker build] --> GATE
-    GATE -->|pass| PUSH[Docker Hub publishing]
-    GATE -->|current Version 2 below baseline| BLOCK[Publishing blocked]
+    CI[GitHub Actions checks: result unverified] --> GATE
+    LOCAL[Local V1 gate result: equals baseline]
+    REJECT[Historical V2 result: below baseline, not promoted]
+    CI -->|only after required checks pass on main| PUSH[Docker Hub publishing job]
 ```
 
 ## Project status
 
-The package, FastAPI and BentoML services, batch-scoring CLI, DVC pipeline/version pointers, MLflow tracking workflow, CI workflow, Docker image path, pre-optimization Locust comparison, local Prometheus metrics, and PSI calculation are implemented. A local reference/current PSI report and local Grafana runtime evidence are documented above. The current Version 2 quality gate fails as measured. Track A optimization, a live canary rollout, and post-optimization benchmarks remain outstanding; this repository should not be described as a production-ready deployment.
+The package, FastAPI and BentoML services, batch-scoring CLI, DVC pipeline/version pointers, MLflow tracking workflow, CI workflow, Docker image path, pre-optimization Locust comparison, local Prometheus metrics, and PSI calculation are implemented. A local reference/current PSI report and local Grafana runtime evidence are documented above. Version 1 is the active candidate and passes the unchanged quality gate locally by matching its baseline; Version 2 remains preserved as a rejected release candidate, not a proven regression. GitHub Actions and Docker Hub publishing have not been verified for this restored candidate. Track A optimization, a live canary rollout, and post-optimization benchmarks remain outstanding; this repository should not be described as a production-ready deployment.
