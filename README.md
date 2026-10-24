@@ -194,7 +194,7 @@ Run the same gate locally with `PYTHONPATH=src python -m arabic_sentiment.qualit
 
 ## Local prediction monitoring and drift
 
-The FastAPI service exposes Prometheus-formatted request counts, prediction confidence, and request duration at `http://127.0.0.1:8000/metrics`. PSI compares `confidence_score` distributions from two distinct prediction exports using reference-quantile bins with epsilon smoothing. The alert rule is strictly `PSI > 0.25`; equality does not alert. This is local monitoring; no drift result is claimed until real reference and current batches are supplied.
+The FastAPI service exposes Prometheus-formatted request counts, prediction confidence, and request duration at `http://127.0.0.1:8000/metrics`. PSI compares `confidence_score` distributions from two distinct prediction exports using reference-quantile bins with epsilon smoothing. The alert rule is strictly `PSI > 0.25`; equality does not alert. The report includes aggregate row counts, file hashes, and alert state, but no review text or personal data.
 
 With the official model artifact configured as described above, export a fixed reference cohort from the existing test split:
 
@@ -203,32 +203,65 @@ mkdir -p reports/monitoring
 SENTIMENT_MODEL_DIR=models/full-gpu-arabert-inference HF_HUB_OFFLINE=1 PYTHONPATH=src .venv/bin/python scripts/export_prediction_confidences.py --input data/processed/test.csv --output reports/monitoring/reference-predictions.csv
 ```
 
-Prepare a **separate, non-overlapping** current-batch CSV with `review` and `source_row_id` columns, then export its real predictions and calculate PSI:
+Prepare a separate real current-batch CSV with `review` and `source_row_id` columns. Preserve source identifiers, exclude rows whose normalized review text overlaps the reference cohort, and do not reuse reference rows. The checker rejects shared source IDs; normalized-text overlap must also be removed when preparing cohorts. Keep review text and input files local. Export predictions from the official local model and calculate PSI:
 
 ```bash
 SENTIMENT_MODEL_DIR=models/full-gpu-arabert-inference HF_HUB_OFFLINE=1 PYTHONPATH=src .venv/bin/python scripts/export_prediction_confidences.py --input path/to/current-batch.csv --output reports/monitoring/current-predictions.csv
 PYTHONPATH=src .venv/bin/python scripts/check_prediction_drift.py --reference reports/monitoring/reference-predictions.csv --current reports/monitoring/current-predictions.csv --output reports/monitoring/drift-report.json
 ```
 
-The checker rejects empty, invalid, or overlapping-ID inputs. It writes a text-free JSON evidence summary and a local HTML dashboard at `reports/monitoring/drift-report.html`; open that HTML file in a browser. The raw confidence exports are ignored by Git. Review generated evidence before sharing; do not include review text or personally identifying information.
+The checker rejects identical paths, missing/invalid or empty inputs, duplicate IDs within a file, and IDs shared between the reference and current files. It writes a text-free JSON evidence summary and a local HTML dashboard at `reports/monitoring/drift-report.html`; open that HTML file in a browser. The raw confidence exports and generated summaries are ignored by Git. Review generated evidence before sharing; do not include review text or personally identifying information. PSI is calculated when this checker runs and persisted in the JSON report; the API reads that persisted score when Prometheus scrapes `/metrics`, rather than recalculating PSI on each scrape.
 
 For live serving metrics, run the API as above and inspect `http://127.0.0.1:8000/metrics` (or `curl http://127.0.0.1:8000/metrics`).
 
-### Prometheus and Grafana dashboard configuration
+### Prometheus and Grafana local stack
 
-[`deploy/monitoring/prometheus.yml`](deploy/monitoring/prometheus.yml) scrapes the API's existing `/metrics` endpoint at `127.0.0.1:8000`. This assumes Prometheus runs on the same host; edit the target to an address reachable from Prometheus when using another deployment layout. Start Prometheus with:
+The main [`compose.yaml`](compose.yaml) runs the API, Prometheus, and Grafana together. Prometheus scrapes `api:8000/metrics` over the Compose network. Grafana is provisioned with the Prometheus data source and the existing four-panel dashboard. The API mounts `reports/monitoring/` read-only so the latest text-free PSI report is visible to `/metrics` after the checker writes it. Ports are bound to localhost only: API `8000`, Prometheus `9090`, Grafana `3000`. The Prometheus and Grafana data volumes persist across `docker compose down`.
+
+The API image still needs the official model artifact at `models/full-gpu-arabert-inference/` (or a host directory selected with `SENTIMENT_MODEL_HOST_PATH`). Model weights are mounted read-only and are not included in Git or the image. Set a local Grafana password without placing it in shell history or repository files, then start the stack from the repository root:
 
 ```bash
-prometheus --config.file=deploy/monitoring/prometheus.yml
+read -rsp "Grafana admin password: " GRAFANA_ADMIN_PASSWORD
+export GRAFANA_ADMIN_PASSWORD
+printf '\n'
+APP_UID="$(id -u)" APP_GID="$(id -g)" docker compose up -d --build
 ```
 
-Validate the scrape configuration with `promtool check config deploy/monitoring/prometheus.yml`. The importable dashboard is [`deploy/monitoring/grafana-dashboard.json`](deploy/monitoring/grafana-dashboard.json). In Grafana, add a Prometheus data source with URL `http://localhost:9090`, then use **Dashboards → New → Import** and upload the dashboard JSON, selecting that data source.
+Keep that shell open with the password environment variable until shutdown; do not write the value into a tracked file. Check readiness and the scrape target after Prometheus has had one 15-second scrape interval:
 
-The dashboard's four panels use existing API metrics: successful-request p95 from `sentiment_prediction_request_duration_seconds_bucket`, confidence histogram buckets from `sentiment_prediction_confidence_score_bucket`, request rate from `sentiment_prediction_requests_total`, and PSI from `sentiment_prediction_psi` with the `sentiment_prediction_psi_alert_threshold` gauge. After the drift checker writes `reports/monitoring/drift-report.json`, the API's `/metrics` endpoint reads that persisted report on each scrape. Set `SENTIMENT_PSI_REPORT_PATH` on the API process if the report is stored elsewhere; it must point to the same shared file that the checker writes. The score remains scrapeable after the checker exits while the report remains valid, but it is only the latest completed comparison, not continuously recalculated. If no valid report exists, the PSI score series is absent; the threshold gauge remains `0.25`. No live Prometheus scrape or Grafana dashboard has been run or verified here.
+```bash
+curl -fsS http://127.0.0.1:8000/health
+curl -fsS http://127.0.0.1:8000/metrics | grep sentiment_prediction_psi_alert_threshold
+curl -fsS http://127.0.0.1:9090/-/ready
+curl -fsSG --data-urlencode 'query=up{job="arabic-sentiment-api"}' http://127.0.0.1:9090/api/v1/query
+curl -fsS http://127.0.0.1:3000/api/health
+```
+
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000), log in as `admin` with the password supplied above, and open the automatically provisioned **Arabic Sentiment** dashboard. Its four panels use the existing API metrics: successful-request p95 from `sentiment_prediction_request_duration_seconds_bucket`, confidence histogram buckets from `sentiment_prediction_confidence_score_bucket`, request rate from `sentiment_prediction_requests_total`, and the latest persisted PSI from `sentiment_prediction_psi` alongside `sentiment_prediction_psi_alert_threshold`.
+
+The PSI score is exposed only after `reports/monitoring/drift-report.json` exists and passes validation. With no valid report, the score series is absent and the threshold gauge remains `0.25`. The local, real-model comparison recorded PSI `0.7600917779` for 1,000 reference reviews and 968 current reviews after normalized-text overlap and repeated-current-row exclusions; provenance is documented in [reports/monitoring/psi-evidence.md](reports/monitoring/psi-evidence.md). The raw confidence exports and JSON/HTML report are ignored local artifacts, so this measurement is not recreated by cloning the repository. The checker exits with status 1 when PSI exceeds `0.25`; this alert describes only the local cohort comparison and is not proof of production drift. No production traffic, production alert, or live canary rollout has been demonstrated. The existing model quality gate still fails because the Version 2 candidate is below its unchanged baseline. These local runtime checks do not establish Docker Hub publishing or production readiness.
+
+Runtime verification on this host succeeded: all three Compose services started; `GET /health` returned `{"status":"ok"}`; Prometheus readiness succeeded and the `arabic-sentiment-api` target reported `up = 1`; Grafana health returned `database: ok`; and all four dashboard panels displayed data after real API prediction requests. The captured dashboard screenshots are [reports/monitoring/grafana-dashboard.png](reports/monitoring/grafana-dashboard.png) and [reports/monitoring/grafana-dashboard-1.png](reports/monitoring/grafana-dashboard-1.png).
+
+Validate the configuration where tools are installed:
+
+```bash
+GRAFANA_ADMIN_PASSWORD=validation-only docker compose config >/dev/null
+promtool check config deploy/monitoring/prometheus.yml
+```
+
+When finished, stop the stack from the same shell (then clear the password variable):
+
+```bash
+docker compose down
+unset GRAFANA_ADMIN_PASSWORD
+```
+
+Do not use `docker compose down -v` if you want to retain Prometheus history and Grafana state. The separate [`compose.minio.yaml`](compose.minio.yaml) continues to manage only the DVC MinIO service.
 
 ## Current architecture and remaining scope
 
-The diagram shows implemented paths. Local Prometheus metrics and a PSI check are implemented, but no real drift result or alert has been captured yet. Canary rollout, TensorRT/distillation/INT8 optimization, and a post-optimization benchmark remain incomplete. The CI quality gate evaluates only the lightweight DVC model, not official AraBERT.
+The diagram shows implemented paths. A local real-model PSI cohort comparison and the Prometheus/Grafana runtime stack have been verified; this is not production traffic or a production alert. Canary rollout, TensorRT/distillation/INT8 optimization, and a post-optimization benchmark remain incomplete. The CI quality gate evaluates only the lightweight DVC model, not official AraBERT.
 
 ```mermaid
 flowchart TD
@@ -247,4 +280,4 @@ flowchart TD
 
 ## Project status
 
-The package, FastAPI and BentoML services, batch-scoring CLI, DVC pipeline/version pointers, MLflow tracking workflow, CI workflow, Docker image path, pre-optimization Locust comparison, local Prometheus metrics, and PSI calculation are implemented. The current Version 2 quality gate fails as measured. Capturing a real reference/current drift report, Track A optimization, canary rollout, and post-optimization benchmarks remain outstanding; this repository should not be described as a production-ready deployment.
+The package, FastAPI and BentoML services, batch-scoring CLI, DVC pipeline/version pointers, MLflow tracking workflow, CI workflow, Docker image path, pre-optimization Locust comparison, local Prometheus metrics, and PSI calculation are implemented. A local reference/current PSI report and local Grafana runtime evidence are documented above. The current Version 2 quality gate fails as measured. Track A optimization, a live canary rollout, and post-optimization benchmarks remain outstanding; this repository should not be described as a production-ready deployment.

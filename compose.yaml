@@ -11,6 +11,41 @@ services:
       - "127.0.0.1:8000:8000"
     environment:
       SENTIMENT_MODEL_DIR: /models/full-gpu-arabert-inference
+      SENTIMENT_PSI_REPORT_PATH: /app/reports/monitoring/drift-report.json
       HF_HUB_OFFLINE: "1"
     volumes:
       - ${SENTIMENT_MODEL_HOST_PATH:-./models/full-gpu-arabert-inference}:/models/full-gpu-arabert-inference:ro
+      - ./reports/monitoring:/app/reports/monitoring:ro
+
+  prometheus:
+    image: prom/prometheus:v3.14.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./deploy/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    depends_on:
+      - api
+
+  grafana:
+    image: grafana/grafana:13.2.4
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in the shell}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./deploy/monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./deploy/monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./deploy/monitoring/grafana-dashboard.json:/var/lib/grafana/dashboards/arabic-sentiment.json:ro
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus-data:
+  grafana-data:
