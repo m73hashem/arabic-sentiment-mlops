@@ -20,7 +20,7 @@ python -m pip install -e ".[dev]"
 
 ## Dataset
 
-This project uses the HARD Arabic Hotel Reviews Dataset, tracked by DVC rather than stored in Git. The current Version 2 at `data/raw/balanced-reviews.txt` is UTF-16 little-endian, tab-separated, and excludes 41 rows from eight normalized-review groups with conflicting mapped sentiments. Version 1 remains recoverable from Git commit `8f976ca2fa718f68f8083779295447ede35c6592` and its DVC pointer. Retrieve the selected version with `dvc pull data/raw/balanced-reviews.txt.dvc`; access requires the configured MinIO remote and local credentials.
+This project uses the HARD Arabic Hotel Reviews Dataset, tracked by DVC rather than stored in Git. The active `data/raw/balanced-reviews.txt` pointer currently selects Version 1 (MD5 `8b3523338727a05a3f8bac9522073b75`). Version 2 remains preserved in Git history at `8bd676ea6688fe0ab2c315d04d42aa2f5bc49a6d`; it excludes 41 rows from eight normalized-review groups with conflicting mapped sentiments. Retrieve the selected version with `dvc pull data/raw/balanced-reviews.txt.dvc`; access requires the configured MinIO remote and local credentials.
 
 ## Phase 1 — Data ingestion and preprocessing
 
@@ -157,7 +157,7 @@ Project-created MLflow runs now receive `dvc.dataset_hash`, read from `data/raw/
 
 ## Phase 6 — DVC data versioning and reproducibility
 
-The raw HARD dataset is tracked by DVC at `data/raw/balanced-reviews.txt`, with its Git-manageable pointer at `data/raw/balanced-reviews.txt.dvc`. The current Version 2 pointer records MD5 `758ea6d7d48541f740599c901859ac42`; Version 1 remains available at Git revision `8f976ca2fa718f68f8083779295447ede35c6592`. Version 2 excludes the 41 source rows in eight normalized-review groups mapped to conflicting sentiments. The `minio` DVC remote uses bucket `arabic-sentiment-dvc` at the local MinIO S3 endpoint. Credentials are supplied through ignored local configuration (`.dvc/config.local` and `.env.minio`); the Compose service stores MinIO data in a Docker-managed named volume outside the repository.
+The raw HARD dataset is tracked by DVC at `data/raw/balanced-reviews.txt`, with its Git-manageable pointer at `data/raw/balanced-reviews.txt.dvc`. The active pointer selects Version 1 (MD5 `8b3523338727a05a3f8bac9522073b75`), recorded at Git revision `8f976ca2fa718f68f8083779295447ede35c6592`. Version 2 (MD5 `758ea6d7d48541f740599c901859ac42`) remains preserved at Git revision `8bd676ea6688fe0ab2c315d04d42aa2f5bc49a6d` and excludes the 41 source rows in eight normalized-review groups mapped to conflicting sentiments. The `minio` DVC remote uses bucket `arabic-sentiment-dvc` at the local MinIO S3 endpoint. Credentials are supplied through ignored local configuration (`.dvc/config.local` and `.env.minio`); the Compose service stores MinIO data in a Docker-managed named volume outside the repository.
 
 The local reproducibility pipeline in `dvc.yaml` is `prepare → train → evaluate`, configured by `params.yaml` (seed 42 and 80/10/10 splits). Its model is TF-IDF + Logistic Regression and is **only** a lightweight DVC demonstration. The official baseline and production/registry model remains the full-GPU AraBERT model at `models/full-gpu-arabert-inference/`.
 
@@ -182,19 +182,19 @@ cp metrics/generated/dvc-reproducibility.json metrics/dvc-reproducibility.json
 The pre-curation candidate snapshot is retained as
 `metrics/dvc-reproducibility-v1-baseline.json`.
 
-The unchanged Phase 6.5 pipeline was observed to skip all three stages; changing only `model.C` caused DVC to keep `prepare` cached and rerun `train` and `evaluate`, and restoring `C=1.0` restored the cached outputs. Evaluation metrics are computed for validation and test splits. The Version 1 and Version 2 raw-data objects and reproducibility pipeline outputs were pushed to MinIO; the final `dvc status -c` reported the cache and remote in sync. After Version 2 reproduction, the local pipeline reports up to date.
+The unchanged Phase 6.5 pipeline was observed to skip all three stages; changing only `model.C` caused DVC to keep `prepare` cached and rerun `train` and `evaluate`, and restoring `C=1.0` restored the cached outputs. Evaluation metrics are computed for validation and test splits. The Version 1 and Version 2 raw-data objects and reproducibility pipeline outputs were pushed to MinIO; the final `dvc status -c` reported the cache and remote in sync. The active Version 1 pipeline currently reports up to date locally.
 
 Project-created MLflow runs include `dvc.dataset_hash` extracted from the raw data pointer and the current Git `HEAD` as `git_commit`. Historical MLflow runs were not changed because they predate this tag and do not establish the DVC hash of their training data. See [reports/module-5.md](reports/module-5.md) for the historical provenance limitation.
 
 ## CI model quality gate
 
-Before Docker Hub publishing, GitHub Actions checks the tracked candidate metric `test.f1_macro` from `metrics/dvc-reproducibility.json` against the explicit baseline in `configs/quality-gate.json`. The unchanged Version 1 regression floor, `0.9392593984962405`, is preserved in `metrics/dvc-reproducibility-v1-baseline.json`; equality passes. The current Version 2 measured candidate is `0.9385747787247837`, below the floor, so the gate correctly fails and Docker Hub publishing remains blocked. No threshold was changed. The evaluator computes macro-F1 across `negative` and `positive`. Because curation changes grouped split membership, the V1 and V2 test scores are based on different examples; the difference is not a controlled same-holdout comparison or a causal estimate of curation impact.
+Before Docker Hub publishing, GitHub Actions checks the tracked candidate metric `test.f1_macro` from `metrics/dvc-reproducibility.json` against the explicit baseline in `configs/quality-gate.json`. The active Version 1 candidate reports `0.9392593984962405`, equal to the unchanged baseline preserved in `metrics/dvc-reproducibility-v1-baseline.json`; equality passes. The rejected Version 2 metric is preserved in `metrics/dvc-reproducibility-v2-rejected.json` at `0.9385747787247837`, below the same baseline. This means Version 2 was not accepted for release under the current gate; it does not establish that Version 2 is worse, because V1 and V2 were evaluated on different test examples. Their score difference is not a controlled same-holdout comparison or a causal estimate of curation impact. The evaluator computes macro-F1 across `negative` and `positive`; the baseline and threshold were not changed. This is local validation only: it does not establish a passing GitHub Actions run or successful Docker Hub publishing.
 
 Run the same gate locally with `PYTHONPATH=src python -m arabic_sentiment.quality_gate --candidate metrics/dvc-reproducibility.json --baseline configs/quality-gate.json`. The GitHub Actions `quality-gate` job runs after tests and must pass alongside the Docker build before the Docker Hub push job. This check covers the lightweight DVC reproducibility model only; it does not claim to evaluate or gate the official AraBERT model, whose large inference weights and local MLflow store are not available in clean CI.
 
 ## Local prediction monitoring and drift
 
-The FastAPI service exposes Prometheus-formatted request counts, prediction confidence, and request duration at `http://127.0.0.1:8000/metrics`. PSI compares `confidence_score` distributions from two distinct prediction exports using reference-quantile bins with epsilon smoothing. The alert rule is strictly `PSI > 0.25`; equality does not alert. This is local monitoring; no drift result is claimed until real reference and current batches are supplied.
+The FastAPI service exposes Prometheus-formatted request counts, prediction confidence, and request duration at `http://127.0.0.1:8000/metrics`. PSI compares `confidence_score` distributions from two distinct prediction exports using reference-quantile bins with epsilon smoothing. The alert rule is strictly `PSI > 0.25`; equality does not alert. The report includes aggregate row counts, file hashes, and alert state, but no review text or personal data.
 
 With the official model artifact configured as described above, export a fixed reference cohort from the existing test split:
 
@@ -203,32 +203,65 @@ mkdir -p reports/monitoring
 SENTIMENT_MODEL_DIR=models/full-gpu-arabert-inference HF_HUB_OFFLINE=1 PYTHONPATH=src .venv/bin/python scripts/export_prediction_confidences.py --input data/processed/test.csv --output reports/monitoring/reference-predictions.csv
 ```
 
-Prepare a **separate, non-overlapping** current-batch CSV with `review` and `source_row_id` columns, then export its real predictions and calculate PSI:
+Prepare a separate real current-batch CSV with `review` and `source_row_id` columns. Preserve source identifiers, exclude rows whose normalized review text overlaps the reference cohort, and do not reuse reference rows. The checker rejects shared source IDs; normalized-text overlap must also be removed when preparing cohorts. Keep review text and input files local. Export predictions from the official local model and calculate PSI:
 
 ```bash
 SENTIMENT_MODEL_DIR=models/full-gpu-arabert-inference HF_HUB_OFFLINE=1 PYTHONPATH=src .venv/bin/python scripts/export_prediction_confidences.py --input path/to/current-batch.csv --output reports/monitoring/current-predictions.csv
 PYTHONPATH=src .venv/bin/python scripts/check_prediction_drift.py --reference reports/monitoring/reference-predictions.csv --current reports/monitoring/current-predictions.csv --output reports/monitoring/drift-report.json
 ```
 
-The checker rejects empty, invalid, or overlapping-ID inputs. It writes a text-free JSON evidence summary and a local HTML dashboard at `reports/monitoring/drift-report.html`; open that HTML file in a browser. The raw confidence exports are ignored by Git. Review generated evidence before sharing; do not include review text or personally identifying information.
+The checker rejects identical paths, missing/invalid or empty inputs, duplicate IDs within a file, and IDs shared between the reference and current files. It writes a text-free JSON evidence summary and a local HTML dashboard at `reports/monitoring/drift-report.html`; open that HTML file in a browser. The raw confidence exports and generated summaries are ignored by Git. Review generated evidence before sharing; do not include review text or personally identifying information. PSI is calculated when this checker runs and persisted in the JSON report; the API reads that persisted score when Prometheus scrapes `/metrics`, rather than recalculating PSI on each scrape.
 
 For live serving metrics, run the API as above and inspect `http://127.0.0.1:8000/metrics` (or `curl http://127.0.0.1:8000/metrics`).
 
-### Prometheus and Grafana dashboard configuration
+### Prometheus and Grafana local stack
 
-[`deploy/monitoring/prometheus.yml`](deploy/monitoring/prometheus.yml) scrapes the API's existing `/metrics` endpoint at `127.0.0.1:8000`. This assumes Prometheus runs on the same host; edit the target to an address reachable from Prometheus when using another deployment layout. Start Prometheus with:
+The main [`compose.yaml`](compose.yaml) runs the API, Prometheus, and Grafana together. Prometheus scrapes `api:8000/metrics` over the Compose network. Grafana is provisioned with the Prometheus data source and the existing four-panel dashboard. The API mounts `reports/monitoring/` read-only so the latest text-free PSI report is visible to `/metrics` after the checker writes it. Ports are bound to localhost only: API `8000`, Prometheus `9090`, Grafana `3000`. The Prometheus and Grafana data volumes persist across `docker compose down`.
+
+The API image still needs the official model artifact at `models/full-gpu-arabert-inference/` (or a host directory selected with `SENTIMENT_MODEL_HOST_PATH`). Model weights are mounted read-only and are not included in Git or the image. Set a local Grafana password without placing it in shell history or repository files, then start the stack from the repository root:
 
 ```bash
-prometheus --config.file=deploy/monitoring/prometheus.yml
+read -rsp "Grafana admin password: " GRAFANA_ADMIN_PASSWORD
+export GRAFANA_ADMIN_PASSWORD
+printf '\n'
+APP_UID="$(id -u)" APP_GID="$(id -g)" docker compose up -d --build
 ```
 
-Validate the scrape configuration with `promtool check config deploy/monitoring/prometheus.yml`. The importable dashboard is [`deploy/monitoring/grafana-dashboard.json`](deploy/monitoring/grafana-dashboard.json). In Grafana, add a Prometheus data source with URL `http://localhost:9090`, then use **Dashboards → New → Import** and upload the dashboard JSON, selecting that data source.
+Keep that shell open with the password environment variable until shutdown; do not write the value into a tracked file. Check readiness and the scrape target after Prometheus has had one 15-second scrape interval:
 
-The dashboard's four panels use existing API metrics: successful-request p95 from `sentiment_prediction_request_duration_seconds_bucket`, confidence histogram buckets from `sentiment_prediction_confidence_score_bucket`, request rate from `sentiment_prediction_requests_total`, and PSI from `sentiment_prediction_psi` with the `sentiment_prediction_psi_alert_threshold` gauge. After the drift checker writes `reports/monitoring/drift-report.json`, the API's `/metrics` endpoint reads that persisted report on each scrape. Set `SENTIMENT_PSI_REPORT_PATH` on the API process if the report is stored elsewhere; it must point to the same shared file that the checker writes. The score remains scrapeable after the checker exits while the report remains valid, but it is only the latest completed comparison, not continuously recalculated. If no valid report exists, the PSI score series is absent; the threshold gauge remains `0.25`. No live Prometheus scrape or Grafana dashboard has been run or verified here.
+```bash
+curl -fsS http://127.0.0.1:8000/health
+curl -fsS http://127.0.0.1:8000/metrics | grep sentiment_prediction_psi_alert_threshold
+curl -fsS http://127.0.0.1:9090/-/ready
+curl -fsSG --data-urlencode 'query=up{job="arabic-sentiment-api"}' http://127.0.0.1:9090/api/v1/query
+curl -fsS http://127.0.0.1:3000/api/health
+```
+
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000), log in as `admin` with the password supplied above, and open the automatically provisioned **Arabic Sentiment** dashboard. Its four panels use the existing API metrics: successful-request p95 from `sentiment_prediction_request_duration_seconds_bucket`, confidence histogram buckets from `sentiment_prediction_confidence_score_bucket`, request rate from `sentiment_prediction_requests_total`, and the latest persisted PSI from `sentiment_prediction_psi` alongside `sentiment_prediction_psi_alert_threshold`.
+
+The PSI score is exposed only after `reports/monitoring/drift-report.json` exists and passes validation. With no valid report, the score series is absent and the threshold gauge remains `0.25`. The local, real-model comparison recorded PSI `0.7600917779` for 1,000 reference reviews and 968 current reviews after normalized-text overlap and repeated-current-row exclusions; provenance is documented in [reports/monitoring/psi-evidence.md](reports/monitoring/psi-evidence.md). The raw confidence exports and JSON/HTML report are ignored local artifacts, so this measurement is not recreated by cloning the repository. The checker exits with status 1 when PSI exceeds `0.25`; this alert describes only the local cohort comparison and is not proof of production drift. No production traffic, production alert, or live canary rollout has been demonstrated. The existing model quality gate still fails because the Version 2 candidate is below its unchanged baseline. These local runtime checks do not establish Docker Hub publishing or production readiness.
+
+Runtime verification on this host succeeded: all three Compose services started; `GET /health` returned `{"status":"ok"}`; Prometheus readiness succeeded and the `arabic-sentiment-api` target reported `up = 1`; Grafana health returned `database: ok`; and all four dashboard panels displayed data after real API prediction requests. The captured dashboard screenshots are [reports/monitoring/grafana-dashboard.png](reports/monitoring/grafana-dashboard.png) and [reports/monitoring/grafana-dashboard-1.png](reports/monitoring/grafana-dashboard-1.png).
+
+Validate the configuration where tools are installed:
+
+```bash
+GRAFANA_ADMIN_PASSWORD=validation-only docker compose config >/dev/null
+promtool check config deploy/monitoring/prometheus.yml
+```
+
+When finished, stop the stack from the same shell (then clear the password variable):
+
+```bash
+docker compose down
+unset GRAFANA_ADMIN_PASSWORD
+```
+
+Do not use `docker compose down -v` if you want to retain Prometheus history and Grafana state. The separate [`compose.minio.yaml`](compose.minio.yaml) continues to manage only the DVC MinIO service.
 
 ## Current architecture and remaining scope
 
-The diagram shows implemented paths. Local Prometheus metrics and a PSI check are implemented, but no real drift result or alert has been captured yet. Canary rollout, TensorRT/distillation/INT8 optimization, and a post-optimization benchmark remain incomplete. The CI quality gate evaluates only the lightweight DVC model, not official AraBERT.
+The diagram shows implemented paths. A local real-model PSI cohort comparison and the Prometheus/Grafana runtime stack have been verified; this is not production traffic or a production alert. Canary rollout, TensorRT/distillation/INT8 optimization, and a post-optimization benchmark remain incomplete. The CI quality gate evaluates only the lightweight DVC model, not official AraBERT.
 
 ```mermaid
 flowchart TD
@@ -240,11 +273,12 @@ flowchart TD
     SHARED --> API[FastAPI Docker image]
     SHARED --> BENTO[BentoML service]
     MLflow[Local MLflow tracking and registry] -. tracks registered artifact .-> OFFICIAL
-    CI[GitHub Actions: lint, tests, coverage, Docker build] --> GATE
-    GATE -->|pass| PUSH[Docker Hub publishing]
-    GATE -->|current Version 2 below baseline| BLOCK[Publishing blocked]
+    CI[GitHub Actions checks: result unverified] --> GATE
+    LOCAL[Local V1 gate result: equals baseline]
+    REJECT[Historical V2 result: below baseline, not promoted]
+    CI -->|only after required checks pass on main| PUSH[Docker Hub publishing job]
 ```
 
 ## Project status
 
-The package, FastAPI and BentoML services, batch-scoring CLI, DVC pipeline/version pointers, MLflow tracking workflow, CI workflow, Docker image path, pre-optimization Locust comparison, local Prometheus metrics, and PSI calculation are implemented. The current Version 2 quality gate fails as measured. Capturing a real reference/current drift report, Track A optimization, canary rollout, and post-optimization benchmarks remain outstanding; this repository should not be described as a production-ready deployment.
+The package, FastAPI and BentoML services, batch-scoring CLI, DVC pipeline/version pointers, MLflow tracking workflow, CI workflow, Docker image path, pre-optimization Locust comparison, local Prometheus metrics, and PSI calculation are implemented. A local reference/current PSI report and local Grafana runtime evidence are documented above. Version 1 is the active candidate and passes the unchanged quality gate locally by matching its baseline; Version 2 remains preserved as a rejected release candidate, not a proven regression. GitHub Actions and Docker Hub publishing have not been verified for this restored candidate. Track A optimization, a live canary rollout, and post-optimization benchmarks remain outstanding; this repository should not be described as a production-ready deployment.

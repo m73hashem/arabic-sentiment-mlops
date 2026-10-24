@@ -11,16 +11,6 @@
     "from": "now-1h",
     "to": "now"
   },
-  "__inputs": [
-    {
-      "name": "DS_PROMETHEUS",
-      "label": "Prometheus",
-      "description": "Prometheus scraping the local sentiment API",
-      "type": "datasource",
-      "pluginId": "prometheus",
-      "pluginName": "Prometheus"
-    }
-  ],
   "panels": [
     {
       "id": 1,
@@ -29,7 +19,7 @@
       "description": "Calculated from the API's existing request-duration histogram.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "prometheus"
       },
       "targets": [
         {
@@ -54,7 +44,7 @@
       "description": "Cumulative bucket observations from the API confidence histogram.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "prometheus"
       },
       "targets": [
         {
@@ -79,7 +69,7 @@
       "description": "Request-rate view using the API's existing labeled counter.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "prometheus"
       },
       "targets": [
         {
@@ -104,7 +94,7 @@
       "description": "The score appears after a drift report is written; the horizontal series is the configured strict alert threshold.",
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "prometheus"
       },
       "targets": [
         {
